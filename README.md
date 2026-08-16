@@ -3,15 +3,24 @@
 Un **tower defense en pixel art**, pensé pour le téléphone : on y joue au
 doigt, d'une seule main, sans rien installer et sans réseau.
 
-Pas de moteur de jeu, pas de framework, pas de `npm install` : du HTML, du CSS
-et du JavaScript, un `<canvas>`, et des sprites dessinés directement dans le
-code. Le jeu entier pèse une centaine de kilo-octets, images comprises.
+Le jeu existe en **deux versions, mêmes règles et mêmes chiffres** :
 
-![Le plateau en cours de partie](docs/screenshot.png)
+| | Où | Pour quoi faire |
+| --- | --- | --- |
+| **Web** | racine du dépôt | Jouer en un lien, s'installer sur l'écran d'accueil, fonctionner hors ligne. Aucune dépendance, aucun build : du HTML, du CSS, un `<canvas>`. |
+| **Godot 4.4** | [`godot/`](godot) | Éditeur de scènes, export Android / iOS / bureau, et la suite du projet si le jeu grandit. |
+
+Les deux partagent l'équilibrage au chiffre près : lancés sur le même robot de
+simulation, ils donnent le même résultat (vague 16 pour une défense posée au
+hasard, 20/20 pour une défense pensée — voir plus bas).
+
+| Version web | Version Godot |
+| --- | --- |
+| ![Le plateau en cours de partie](docs/screenshot.png) | ![La même partie sous Godot](docs/screenshot-godot.png) |
 
 ## Jouer
 
-- **En ligne** : https://jlefebvre59320-hash.github.io/pixel-defense/
+- **En ligne (version web)** : https://jlefebvre59320-hash.github.io/pixel-defense/
   (à activer une fois : *Settings → Pages → Source : GitHub Actions*).
 - **Sur le téléphone** : ouvrir cette adresse, puis *Ajouter à l'écran
   d'accueil*. Le jeu s'installe comme une application et fonctionne ensuite
@@ -20,6 +29,8 @@ code. Le jeu entier pèse une centaine de kilo-octets, images comprises.
   (Le mode hors ligne, lui, demande un vrai serveur : `python3 -m http.server`
   puis http://localhost:8000 — un service worker ne s'installe pas depuis un
   fichier local.)
+- **Version Godot** : `godot --path godot`, ou ouvrir le dossier `godot/` dans
+  Godot 4.4. Détails dans [Version Godot](#version-godot).
 
 ## Les règles
 
@@ -54,7 +65,7 @@ Quatre ennemis, et chacun punit une défense mal pensée :
 Clavier (sur ordinateur) : **Espace** pause · **N** vague suivante ·
 **1–4** construire sur la case choisie · **S** vitesse · **Échap** fermer.
 
-## Comment c'est fait
+## Comment c'est fait (version web)
 
 ```
 index.html          Structure : bandeau, plateau, panneau, barre de commandes
@@ -98,7 +109,10 @@ node tools/simulate.mjs 3
 Le moteur se charge dans Node sans navigateur et fait jouer trois profils. Un
 réglage sain se lit ainsi : le profil « novice » (des tourelles au hasard,
 jamais d'amélioration) tombe avant la fin, le profil « correct » gagne en
-gardant des vies.
+gardant des vies. La version Godot a le même outil
+(`godot --path godot --headless --script tools/simulate.gd -- 3`) et sort les
+mêmes chiffres — c'est ainsi qu'on vérifie que les deux versions n'ont pas
+divergé.
 
 ```
 novice   {"issue":"perdu","vague":16,"vies":0,"score":22270,"tours":82}
@@ -112,11 +126,72 @@ un pixel, `.` = transparent, la palette est en haut du fichier. Un contrôle au
 chargement signale toute ligne de mauvaise longueur dans la console. Les
 icônes de l'application se régénèrent avec `node tools/make-icons.mjs`.
 
+## Version Godot
+
+Le même jeu, porté sur **Godot 4.4**, dans le dossier [`godot/`](godot). Même
+carte, mêmes tours, mêmes vagues, mêmes chiffres : `godot/scripts/config.gd`
+est la copie GDScript de `js/config.js`.
+
+```
+godot --path godot                       # jouer
+godot --path godot --headless --script tools/simulate.gd -- 3   # équilibrage
+```
+
+Ou, sans ligne de commande : ouvrir Godot, *Importer*, choisir le dossier
+`godot/`.
+
+```
+godot/project.godot         Réglages : portrait, rendu GL Compatibility, pixels nets
+godot/scenes/Main.tscn      Structure de l'écran (la seule scène à ouvrir dans l'éditeur)
+godot/scripts/config.gd     Équilibrage — l'unique fichier à toucher pour régler la difficulté
+godot/scripts/map_data.gd   Grille, chemin déduit des points de passage, décor
+godot/scripts/sim.gd        La simulation : vagues, tirs, dégâts, économie
+godot/scripts/board.gd      Vue du plateau : terrain, sprites des tours et des ennemis
+godot/scripts/fx.gd         Barres de vie, portées, explosions, éclairs, or qui s'envole
+godot/scripts/ui.gd         Interface : compteurs, panneaux, écrans de fin
+godot/scripts/main.gd       Boucle, entrées, enchaînement des écrans
+godot/scripts/art.gd        Sprites en texte → textures, terrain peint une fois
+godot/scripts/sfx.gd        Bruitages fabriqués à la volée (aucun fichier son)
+godot/tools/simulate.gd     Robot d'équilibrage, sans fenêtre ni rendu
+```
+
+Trois choix de structure méritent une explication :
+
+1. **`sim.gd` ne connaît ni nœud, ni texture, ni pixel.** Il fait avancer la
+   partie à partir d'un temps écoulé et prévient le reste par des signaux
+   (`enemy_died`, `wave_started`, `explosion`…). D'où le mode ×2/×3 gratuit, et
+   surtout un robot qui joue vingt vagues en une seconde, sans fenêtre.
+2. **`config.gd` et `map_data.gd` ne sont pas des autoloads** mais des classes
+   chargées par `preload`, avec des membres statiques : les autoloads
+   n'existent pas en mode `--script`, et le robot d'équilibrage doit tourner
+   sur un dépôt fraîchement cloné, avant tout passage par l'éditeur.
+3. **L'interface est faite de vrais `Control`**, pas de dessins dans le
+   plateau : texte net, boutons de 44 px, clavier gratuit. Le plateau, lui, est
+   un `Node2D` mis à l'échelle par pas d'un demi-pixel d'art — en tenant compte
+   de l'étirement appliqué par Godot, sinon un pixel d'art ferait 3 pixels
+   d'écran ici et 4 juste à côté.
+
+**Mode démo** — le jeu se joue tout seul, défense posée et vagues appelées.
+Sert à vérifier le rendu et à refaire les captures :
+
+```
+godot --path godot --write-movie captures/f.png --fixed-fps 30 --quit-after 200 -- --demo
+```
+
+**Export Android.** Dans l'éditeur : *Éditeur → Gérer les modèles d'export*
+(installer les modèles 4.4), puis *Projet → Exporter → Ajouter → Android*.
+Il faut le SDK Android (Android Studio suffit) et un keystore de signature —
+*Éditeur → Paramètres → Export → Android*. Le fichier `export_presets.cfg`
+n'est **pas versionné à dessein** : Godot y écrit le mot de passe du keystore.
+Godot exporte aussi vers le web, mais la version HTML de ce dépôt reste plus
+légère et démarre plus vite : autant garder chacun sur son terrain.
+
 ## Mise en ligne
 
 Chaque `push` sur `main` déclenche `.github/workflows/pages.yml`, qui publie le
-dépôt tel quel sur GitHub Pages (il n'y a rien à compiler). La première fois,
-il faut activer Pages : **Settings → Pages → Source : GitHub Actions**.
+dépôt tel quel sur GitHub Pages (il n'y a rien à compiler ; la version Godot
+est simplement ignorée par le navigateur). La première fois, il faut activer
+Pages : **Settings → Pages → Source : GitHub Actions**.
 
 Après une modification, penser à changer le numéro de version en tête de
 `sw.js` (`pixel-defense-v1` → `v2`) : c'est ce qui remplace le cache des

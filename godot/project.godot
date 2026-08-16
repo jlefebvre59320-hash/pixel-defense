@@ -1,0 +1,42 @@
+; Pixel Defense — projet Godot 4.4
+;
+; Portrait, rendu « GL Compatibility » (le plus sûr sur téléphone d'entrée de
+; gamme), filtrage des textures au plus proche voisin : c'est ce dernier
+; réglage qui garde les pixels carrés au lieu de les flouter à l'agrandissement.
+
+config_version=5
+
+[application]
+
+config/name="Pixel Defense"
+config/description="Tower defense en pixel art : 20 vagues, 4 tours, une base à défendre."
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.png"
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.055, 0.063, 0.125, 1)
+
+[autoload]
+
+Art="*res://scripts/art.gd"
+Sfx="*res://scripts/sfx.gd"
+SaveData="*res://scripts/save_data.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.055, 0.063, 0.125, 1)
