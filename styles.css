@@ -1,0 +1,345 @@
+/* Pixel Defense — habillage.
+   Mobile d'abord : une colonne qui remplit exactement la hauteur de l'écran,
+   sans défilement, avec le plateau au milieu et les commandes à portée de
+   pouce en bas. Le jeu doit être jouable d'une seule main. */
+
+:root {
+  --bg: #0e1020;
+  --panel: #191c2e;
+  --panel-hi: #212540;
+  --line: #2b2f45;
+  --ink: #eef1f7;
+  --muted: #98a0bb;
+  --gold: #ffd84d;
+  --red: #e5484d;
+  --green: #57c96a;
+  --cyan: #5be3e0;
+  --radius: 10px;
+  --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  /* Un jeu ne se sélectionne pas et ne se zoome pas par erreur au double-tap. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow: hidden;
+}
+
+/* --- Bandeau de compteurs ------------------------------------------------ */
+
+#hud {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  flex: 0 0 auto;
+}
+
+.stat {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.stat b { font-variant-numeric: tabular-nums; }
+.stat .ico { font-size: 12px; opacity: 0.9; }
+.stat.lives .ico { color: var(--red); }
+.stat.gold .ico { color: var(--gold); }
+.stat.wave .ico { color: var(--cyan); }
+.stat.score .ico { color: var(--muted); }
+
+/* Peu de vies : le bandeau bat, on ne peut pas ne pas le voir. */
+.stat.danger {
+  border-color: var(--red);
+  animation: alert 1s ease-in-out infinite;
+}
+@keyframes alert {
+  0%, 100% { background: var(--panel); }
+  50% { background: #3a1c22; }
+}
+
+/* --- Plateau -------------------------------------------------------------- */
+
+/* Le plateau est dimensionné par le rendu (taille exacte d'un nombre entier
+   de pixels d'art) ; la scène ne fait que le centrer dans la place restante. */
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#board {
+  display: block;
+  /* content-box : la bordure ne rogne pas la surface de dessin, sinon le
+     canvas serait redimensionné par le navigateur et perdrait sa netteté. */
+  box-sizing: content-box;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: #0b0d18;
+  /* Le doigt joue, il ne fait pas défiler la page. */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* --- Panneau du bas (construire / améliorer) ------------------------------ */
+
+.sheet {
+  flex: 0 0 auto;
+  margin: 8px 10px 0;
+  padding: 10px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+.sheet.hidden { display: none; }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sheet-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sheet-title em { color: var(--gold); font-style: normal; }
+
+.chip {
+  background: transparent;
+  border: 2px solid var(--line);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: var(--panel-hi);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 96px;
+}
+.card:active { transform: translateY(1px); }
+.card .icon { image-rendering: pixelated; }
+.card-name { font-size: 11px; font-weight: 700; }
+.card-cost { font-size: 12px; font-weight: 700; color: var(--gold); }
+.card-meta { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Trop cher : la carte reste lisible mais visiblement hors de portée. */
+.poor { opacity: 0.42; }
+.card.poor { border-style: dashed; }
+
+.sheet-hint {
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  min-height: 2.4em;
+}
+
+.tower-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tower-body .icon { image-rendering: pixelated; flex: 0 0 auto; }
+
+.stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 12px;
+}
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-weight: 700; }
+.stats dd em { color: var(--green); font-style: normal; }
+
+.sheet-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* --- Barre de commandes --------------------------------------------------- */
+
+#bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  flex: 0 0 auto;
+}
+
+.btn {
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary {
+  background: var(--gold);
+  border-color: #b9950f;
+  color: #12131c;
+}
+.btn.ghost { background: var(--panel); }
+.btn.grow { flex: 1 1 auto; }
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+#btn-sound.off { color: var(--muted); text-decoration: line-through; }
+
+/* --- Écrans pleins -------------------------------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(9, 10, 22, 0.86);
+  backdrop-filter: blur(3px);
+  z-index: 10;
+}
+.overlay.hidden { display: none; }
+
+.overlay .panel {
+  width: 100%;
+  max-width: 330px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 20px 18px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.overlay h1 {
+  margin: 2px 0 10px;
+  font-size: 25px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  /* Ombre dure : le titre a l'air d'un logo de jeu, pas d'un titre de page. */
+  text-shadow: 3px 3px 0 #12131c;
+  color: var(--gold);
+}
+
+.overlay .kicker {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.overlay .line {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-align: left;
+}
+.overlay .line b { color: var(--ink); }
+.overlay .line em { color: var(--gold); font-style: normal; }
+
+.overlay .btn { width: 100%; margin-top: 8px; }
+
+/* --- Message éphémère ------------------------------------------------------ */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: rgba(9, 10, 22, 0.92);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 5;
+}
+.toast.hidden { display: none; }
+
+/* --- Écrans larges --------------------------------------------------------- */
+
+@media (min-width: 560px) and (min-height: 700px) {
+  #app { max-width: 560px; }
+  .card-name { font-size: 12px; }
+  .overlay .panel { max-width: 380px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

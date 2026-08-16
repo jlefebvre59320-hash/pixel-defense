@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover : le jeu occupe l'écran jusque sous l'encoche ; les
+     marges de sécurité sont reprises en CSS avec env(safe-area-inset-*). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1020">
+<meta name="description" content="Pixel Defense — un tower defense en pixel art, jouable au doigt, sans installation et hors ligne. 20 vagues, 4 tours, une base à défendre.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pixel Defense">
+<title>Pixel Defense — tower defense de poche</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header id="hud">
+    <div class="stat lives" title="Vies restantes">
+      <span class="ico" aria-hidden="true">❤</span><b id="stat-lives">15</b>
+    </div>
+    <div class="stat gold" title="Or disponible">
+      <span class="ico" aria-hidden="true">◈</span><b id="stat-gold">150</b>
+    </div>
+    <div class="stat wave" title="Vague">
+      <span class="ico" aria-hidden="true">≋</span><b id="stat-wave">0/20</b>
+    </div>
+    <div class="stat score" title="Score">
+      <span class="ico" aria-hidden="true">★</span><b id="stat-score">0</b>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="board" role="img" aria-label="Plateau de jeu : un chemin traverse la carte du haut vers la base, en bas à gauche."></canvas>
+    <div id="overlay" class="overlay hidden"></div>
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <div id="sheet" class="sheet hidden"></div>
+
+  <footer id="bar">
+    <button id="btn-wave" class="btn primary grow" type="button">Commencer</button>
+    <button id="btn-speed" class="btn ghost" type="button" aria-label="Vitesse de jeu">×1</button>
+    <button id="btn-sound" class="btn ghost" type="button" aria-label="Couper le son">♪</button>
+    <button id="btn-pause" class="btn ghost" type="button" aria-label="Pause">❚❚</button>
+  </footer>
+
+</div>
+
+<noscript>
+  <p style="color:#eef1f7;font-family:monospace;padding:20px">
+    Pixel Defense a besoin de JavaScript : tout le jeu tourne dans votre navigateur,
+    il n'y a pas de serveur pour le remplacer.
+  </p>
+</noscript>
+
+<script src="js/config.js"></script>
+<script src="js/map.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
