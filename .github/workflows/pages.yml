@@ -29,8 +29,12 @@ jobs:
       - name: Vérifier les sprites et l'équilibrage
         run: node tools/simulate.mjs 1
 
+      # enablement: true active GitHub Pages sur le dépôt au premier passage,
+      # au lieu d'exiger un réglage à la main dans Settings → Pages.
       - name: Préparer Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Empaqueter le site
         uses: actions/upload-pages-artifact@v3
