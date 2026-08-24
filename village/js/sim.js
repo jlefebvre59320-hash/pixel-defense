@@ -31,6 +31,7 @@
         pop: C.START_POP,
         buildings: [],
         nextId: 1,
+        version: 0,          // incrémenté à chaque construction ou démolition
         expandBought: 0,
         famineDays: 0,
         seed: seed || 1,
@@ -87,6 +88,7 @@
         built: st.t
       };
       st.buildings.push(b);
+      st.version++;
       World.setOccupied(c, r, b.id);
       if (!free) st.stats.built++;
       return b;
@@ -102,6 +104,7 @@
       }
       World.setOccupied(b.c, b.r, 0);
       st.buildings.splice(st.buildings.indexOf(b), 1);
+      st.version++;
       return true;
     },
 
@@ -112,6 +115,7 @@
       if (st.res.gold < cost) return false;
       st.res.gold -= cost;
       st.expandBought++;
+      st.version++;
       World.expand();
       Sim.notify(st, "Territoire agrandi");
       return true;

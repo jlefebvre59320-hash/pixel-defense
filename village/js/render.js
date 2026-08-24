@@ -19,7 +19,11 @@
     grassAlt: "#548f49",
     sand: "#e0cf9a",
     water: "#3f7fb0",
-    waterAlt: "#4a8cbb"
+    waterAlt: "#4a8cbb",
+    shallow: "#5fa3c8",
+    road: "#b09364",
+    roadAlt: "#a8895c",
+    flower: ["#f4f1e4", "#ffd15c", "#e08aa8"]
   };
 
   /* Habitants qui déambulent : ils ne servent à rien, et ils changent tout —
@@ -42,10 +46,38 @@
     return { c: World.hall.c, r: World.hall.r };
   }
 
+  /* Chemins : chaque bâtiment est relié à l'hôtel de ville par un tracé en
+     équerre. C'est ce réseau, plus que les bâtiments eux-mêmes, qui fait lire
+     un village plutôt qu'une collection de cabanes. Recalculé seulement quand
+     le village change. */
+  var roads = { version: -1, set: {} };
+
+  function markRoad(set, c, r) {
+    if (!World.inBounds(c, r)) return;
+    if (World.tile(c, r) === World.WATER) return;
+    if (World.resource(c, r) !== World.NONE) return;
+    if (World.building(c, r) !== 0) return;
+    set[c + "," + r] = true;
+  }
+
+  function buildRoads(st) {
+    var set = {};
+    var hall = World.hall;
+    for (var i = 0; i < st.buildings.length; i++) {
+      var b = st.buildings[i];
+      if (b.type === "hall") continue;
+      var c = b.c, r = b.r;
+      var sc = Math.sign(hall.c - c), sr = Math.sign(hall.r - r);
+      while (c !== hall.c) { c += sc; markRoad(set, c, r); }
+      while (r !== hall.r) { r += sr; markRoad(set, c, r); }
+    }
+    return set;
+  }
+
   var Render = {
     villagers: villagers,
 
-    reset: function () { villagers.length = 0; },
+    reset: function () { villagers.length = 0; roads.version = -1; },
 
     /* Un passant pour cinq habitants, jamais plus de douze : au-delà, on ne
        voit plus le village. */
@@ -77,13 +109,24 @@
 
     frame: function (ctx, st, now, view) {
       var k = Iso.k();
-      ctx.fillStyle = COLORS.void;
+
+      /* Au-delà de la carte, ce n'est pas du vide : c'est le large. Un dégradé
+         suffit à faire flotter l'île au lieu de la poser sur du noir. */
+      var sea = ctx.createLinearGradient(0, 0, 0, Iso.h);
+      sea.addColorStop(0, "#0b1b2e");
+      sea.addColorStop(1, "#12314a");
+      ctx.fillStyle = sea;
       ctx.fillRect(0, 0, Iso.w, Iso.h);
 
       var margin = C.TW * k * 2;
       var visible = function (p) {
         return p.x > -margin && p.x < Iso.w + margin && p.y > -margin && p.y < Iso.h + margin * 2;
       };
+
+      if (roads.version !== st.version) {
+        roads.set = buildRoads(st);
+        roads.version = st.version;
+      }
 
       /* --- Sol --- */
       for (var r = 0; r < C.ROWS; r++) {
@@ -93,12 +136,17 @@
 
           var t = World.tile(c, r);
           var out = !World.inTerritory(c, r);
+          var road = roads.set[c + "," + r] === true;
           var color;
           if (t === World.WATER) {
             /* L'eau respire : deux tons qui alternent lentement, décalés
-               d'une case à l'autre. */
+               d'une case à l'autre, et s'éclaircit près du rivage. */
             var wave = Math.sin(now / 700 + (c + r) * 0.6) > 0;
-            color = wave ? COLORS.water : COLORS.waterAlt;
+            var shallow = World.tile(c - 1, r) !== World.WATER || World.tile(c + 1, r) !== World.WATER
+              || World.tile(c, r - 1) !== World.WATER || World.tile(c, r + 1) !== World.WATER;
+            color = shallow ? COLORS.shallow : (wave ? COLORS.water : COLORS.waterAlt);
+          } else if (road) {
+            color = World.speck(c, r, 0) > 0.5 ? COLORS.road : COLORS.roadAlt;
           } else if (t === World.SAND) {
             color = COLORS.sand;
           } else {
@@ -111,6 +159,25 @@
             speckle: t === World.WATER ? null : function (i) { return World.speck(c, r, i); }
           });
 
+          /* Fleurs et cailloux : trois pixels par-ci par-là, toujours aux
+             mêmes endroits. C'est ce semis qui empêche la prairie de faire
+             moquette. */
+          if (t === World.GRASS && !out && !road && k >= 2) {
+            var deco = World.speck(c, r, 11);
+            if (deco > 0.82) {
+              var dx = (World.speck(c, r, 12) - 0.5) * C.TW * 0.45 * k;
+              var dy = (World.speck(c, r, 13) - 0.5) * C.TH * 0.45 * k;
+              var px = Math.max(1, Math.round(k * 0.9));
+              ctx.fillStyle = deco > 0.93
+                ? "#8d9aa6"
+                : COLORS.flower[Math.floor(World.speck(c, r, 14) * 3) % 3];
+              ctx.fillRect(Math.round(p.x + dx), Math.round(p.y + dy), px, px);
+              if (deco <= 0.93) {
+                ctx.fillRect(Math.round(p.x + dx), Math.round(p.y + dy + px), px, px);
+              }
+            }
+          }
+
           /* Écume au bord de l'eau : on la dessine côté terre, là où la vague
              vient mourir. */
           if (t !== World.WATER) {
@@ -121,6 +188,16 @@
               World.tile(c, r + 1) === World.WATER    // sud-ouest
             ];
             if (sides[0] || sides[1] || sides[2] || sides[3]) Art.shore(ctx, p.x, p.y, k, sides);
+          } else if (k >= 2) {
+            /* Deux traits clairs qui dérivent : sans eux, l'eau est une nappe
+               de peinture bleue. */
+            var phase = (now / 2200 + World.speck(c, r, 6)) % 1;
+            ctx.fillStyle = "rgba(226,240,246,0.22)";
+            ctx.fillRect(
+              Math.round(p.x - C.TW * 0.18 * k),
+              Math.round(p.y + (phase - 0.5) * C.TH * 0.5 * k),
+              Math.round(C.TW * 0.36 * k), Math.max(1, k * 0.6)
+            );
           }
         }
       }
@@ -178,15 +255,26 @@
           pos = Iso.toScreen(it.c, it.r);
           if (!visible(pos)) continue;
           dim = !World.inTerritory(it.c, it.r);
-          ctx.globalAlpha = dim ? 0.55 : 1;
-          Art.drawFoot(ctx, it.kind, pos.x, pos.y + (C.TH / 2) * k * 0.6, Math.max(1, k));
+          ctx.globalAlpha = dim ? 0.6 : 1;
+          /* Ombre au pied de l'arbre : c'est elle qui le pose sur l'herbe. */
+          ctx.save();
+          ctx.globalAlpha *= 0.28;
+          ctx.fillStyle = "#12240f";
+          ctx.beginPath();
+          ctx.ellipse(pos.x, pos.y + (C.TH / 2) * k * 0.5, k * 4.5, k * 2.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          /* Balancement : un pixel de va-et-vient, décalé d'un arbre à
+             l'autre. Une forêt parfaitement immobile a l'air peinte. */
+          var sway = Math.sin(now / 1400 + (it.c + it.r) * 0.9) * k * 0.8;
+          Art.drawFoot(ctx, it.kind, pos.x + sway, pos.y + (C.TH / 2) * k * 0.6, Math.max(1, k));
           ctx.globalAlpha = 1;
         } else if (it.kind === "building") {
           pos = Iso.toScreen(it.b.c, it.b.r);
           if (!visible(pos)) continue;
           var def = Sim.def(it.b.type);
           var selected = view.selected && view.selected.c === it.b.c && view.selected.r === it.b.r;
-          Art.building(ctx, pos.x, pos.y, k, def, { spin: now / 400 });
+          Art.building(ctx, pos.x, pos.y, k, def, { spin: now / 400, now: now, seed: it.b.id });
           if (selected) {
             Art.tileOutline(ctx, pos.x, pos.y, k, "rgba(255,216,77,0.95)", Math.max(1, k));
           }
@@ -205,6 +293,21 @@
           Art.drawFoot(ctx, it.v.skin, pos.x, pos.y + bob, Math.max(1, k));
         }
       }
+
+      Render.vignette(ctx);
+    },
+
+    /* Vignette : quatre coins à peine assombris. Rien ne se voit, tout se
+       sent — le regard tombe au centre de la carte. */
+    vignette: function (ctx) {
+      var g = ctx.createRadialGradient(
+        Iso.w / 2, Iso.h / 2, Math.min(Iso.w, Iso.h) * 0.35,
+        Iso.w / 2, Iso.h / 2, Math.max(Iso.w, Iso.h) * 0.75
+      );
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(3,8,16,0.45)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, Iso.w, Iso.h);
     },
 
     /* Le territoire se lit d'un trait clair sur le sol : dedans on bâtit,

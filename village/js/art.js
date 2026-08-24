@@ -209,7 +209,7 @@
        claire au nord. Sans ce grain, le sol fait carrelage de salle de bain. */
     tile: function (ctx, sx, sy, k, opts) {
       var pts = V.Iso.diamond(sx, sy, k);
-      var color = opts.dim ? shade(opts.color, -0.26) : opts.color;
+      var color = opts.dim ? shade(opts.color, -0.34) : opts.color;
 
       poly(ctx, pts, color, null);
 
@@ -272,10 +272,37 @@
       var hw = (C.TW / 2) * k * w;
       var hh = (C.TH / 2) * k * w;
 
-      poly(ctx, [[sx, sy + hh], [sx + hw, sy], [sx + hw, sy - h], [sx, sy + hh - h]],
-        shade(wall, -0.06), OUTLINE, lw);
-      poly(ctx, [[sx, sy + hh], [sx - hw, sy], [sx - hw, sy - h], [sx, sy + hh - h]],
-        shade(wall, -0.36), OUTLINE, lw);
+      var right = [[sx, sy + hh], [sx + hw, sy], [sx + hw, sy - h], [sx, sy + hh - h]];
+      var left = [[sx, sy + hh], [sx - hw, sy], [sx - hw, sy - h], [sx, sy + hh - h]];
+
+      poly(ctx, right, shade(wall, -0.06), OUTLINE, lw);
+      poly(ctx, left, shade(wall, -0.36), OUTLINE, lw);
+
+      /* Montants de colombage : trois traits par face. Un mur parfaitement
+         lisse fait carton, pas maison. */
+      ctx.lineWidth = Math.max(1, k * 0.45);
+      for (var i = 1; i <= 3; i++) {
+        var t = i / 4;
+        ctx.strokeStyle = shade(wall, -0.24);
+        ctx.beginPath();
+        ctx.moveTo(sx + hw * t, sy + hh - hh * t);
+        ctx.lineTo(sx + hw * t, sy + hh - hh * t - h);
+        ctx.stroke();
+        ctx.strokeStyle = shade(wall, -0.5);
+        ctx.beginPath();
+        ctx.moveTo(sx - hw * t, sy + hh - hh * t);
+        ctx.lineTo(sx - hw * t, sy + hh - hh * t - h);
+        ctx.stroke();
+      }
+
+      /* Sablière : le bandeau clair sous la toiture. */
+      ctx.strokeStyle = shade(wall, 0.2);
+      ctx.lineWidth = Math.max(1, k * 0.6);
+      ctx.beginPath();
+      ctx.moveTo(sx - hw, sy - h);
+      ctx.lineTo(sx, sy + hh - h);
+      ctx.lineTo(sx + hw, sy - h);
+      ctx.stroke();
 
       return h;
     },
@@ -290,11 +317,48 @@
       var apex = [sx, sy - height * k];
       var N = [sx, sy - hh], E = [sx + hw, sy], S = [sx, sy + hh], W = [sx - hw, sy];
 
-      poly(ctx, [W, N, apex], shade(color, 0.08), OUTLINE, lw);
-      poly(ctx, [N, E, apex], shade(color, 0.24), OUTLINE, lw);
-      poly(ctx, [W, S, apex], shade(color, -0.30), OUTLINE, lw);
-      poly(ctx, [E, S, apex], shade(color, -0.10), OUTLINE, lw);
+      Art.roofFace(ctx, [W, N, apex], shade(color, 0.08), lw, k);
+      Art.roofFace(ctx, [N, E, apex], shade(color, 0.24), lw, k);
+      Art.roofFace(ctx, [W, S, apex], shade(color, -0.30), lw, k);
+      Art.roofFace(ctx, [E, S, apex], shade(color, -0.10), lw, k);
+
+      /* Faîtage : la ligne de crête attrape la lumière et referme la
+         toiture. */
+      ctx.beginPath();
+      ctx.moveTo(W[0], W[1]);
+      ctx.lineTo(apex[0], apex[1]);
+      ctx.lineTo(E[0], E[1]);
+      ctx.strokeStyle = shade(color, 0.35);
+      ctx.lineWidth = Math.max(1, k * 0.7);
+      ctx.stroke();
+
       return apex;
+    },
+
+    /* Un pan de toiture : l'aplat, puis quatre rangs de tuiles parallèles à
+       l'égout. C'est ce qui distingue une toiture d'un triangle de couleur —
+       et ça ne coûte que quatre traits. */
+    roofFace: function (ctx, tri, color, lw, k) {
+      poly(ctx, tri, color, OUTLINE, lw);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(tri[0][0], tri[0][1]);
+      ctx.lineTo(tri[1][0], tri[1][1]);
+      ctx.lineTo(tri[2][0], tri[2][1]);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.strokeStyle = shade(color, -0.22);
+      ctx.lineWidth = Math.max(1, k * 0.5);
+      for (var i = 1; i <= 4; i++) {
+        var t = i / 5;
+        ctx.beginPath();
+        ctx.moveTo(tri[0][0] + (tri[2][0] - tri[0][0]) * t, tri[0][1] + (tri[2][1] - tri[0][1]) * t);
+        ctx.lineTo(tri[1][0] + (tri[2][0] - tri[1][0]) * t, tri[1][1] + (tri[2][1] - tri[1][1]) * t);
+        ctx.stroke();
+      }
+      ctx.restore();
     },
 
     /* Ouvertures : une porte sur l'arête sud, une fenêtre allumée sur la face
@@ -376,7 +440,10 @@
 
       /* Accessoires : c'est à eux qu'on reconnaît le métier d'un coup d'œil. */
       switch (style) {
-        case "house": Art.chimney(ctx, sx - u * 3.5, sy - h - u * 1.5, k); break;
+        case "house":
+          Art.chimney(ctx, sx - u * 3.5, sy - h - u * 1.5, k);
+          if (opts.now !== undefined) Art.smoke(ctx, sx - u * 2.3, sy - h - u * 7, k, opts.seed || 0, opts.now);
+          break;
         case "lumber": Art.logs(ctx, sx - u * 9, sy + hh * 0.75, k); break;
         case "quarry": Art.stones(ctx, sx - u * 9, sy + hh * 0.75, k); break;
         case "market": Art.awning(ctx, sx, sy, k, h, w); break;
@@ -413,6 +480,19 @@
         if (Math.abs(dx) / hw + Math.abs(dy) / hh > 0.7) continue;
         ctx.fillStyle = "#ffd15c";
         ctx.fillRect(Math.round(sx + dx), Math.round(sy - k * 2.2 + dy), Math.max(1, k * 0.8), Math.max(1, k * 1.8));
+      }
+    },
+
+    /* Fumée : trois bouffées qui montent et s'effacent. Un village où
+       personne ne fait de feu a l'air abandonné. */
+    smoke: function (ctx, x, y, k, seed, now) {
+      for (var i = 0; i < 3; i++) {
+        var t = ((now / 2600) + seed * 0.37 + i * 0.33) % 1;
+        var r = k * (1.1 + t * 2.6);
+        ctx.beginPath();
+        ctx.arc(x + Math.sin(t * 5 + seed) * k * 2.2, y - t * k * 13, r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(232,230,222," + (0.42 * (1 - t)).toFixed(3) + ")";
+        ctx.fill();
       }
     },
 
