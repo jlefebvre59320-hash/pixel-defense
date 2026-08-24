@@ -163,13 +163,25 @@
     return baked[name];
   }
 
-  function shade(hex, amount) {
-    var n = parseInt(hex.slice(1), 16);
-    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  /* Éclaircir ou assombrir une couleur. Elle accepte aussi bien « #rrggbb »
+     que sa propre sortie « rgb(r,g,b) » : les teintes s'empilent (variation
+     d'un bâtiment, puis ombrage de chaque face), et une fonction qui ne sait
+     relire que l'hexadécimal renvoie du noir dès le deuxième passage. */
+  function parseColor(col) {
+    if (col.charAt(0) === "#") {
+      var n = parseInt(col.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    var m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(col);
+    return m ? [+m[1], +m[2], +m[3]] : [255, 0, 255];
+  }
+
+  function shade(col, amount) {
+    var rgb = parseColor(col);
     var f = function (v) {
       return Math.max(0, Math.min(255, Math.round(amount < 0 ? v * (1 + amount) : v + (255 - v) * amount)));
     };
-    return "rgb(" + f(r) + "," + f(g) + "," + f(b) + ")";
+    return "rgb(" + f(rgb[0]) + "," + f(rgb[1]) + "," + f(rgb[2]) + ")";
   }
 
   function poly(ctx, pts, fill, stroke, lw) {
@@ -393,10 +405,15 @@
       ctx.save();
       ctx.globalAlpha = alpha;
 
-      var wall = opts.color || d.color;
-      var roofColor = opts.roof || d.roof;
+      /* Variation d'un exemplaire à l'autre : une rangée de maisons rigou-
+         reusement identiques se repère au premier coup d'œil et sent le
+         copier-coller. Le grain vient du numéro du bâtiment, donc il ne
+         change jamais. */
+      var vs = ((opts.variant || 1) * 0.6180339887) % 1;
+      var wall = shade(opts.color || d.color, (vs - 0.5) * 0.14);
+      var roofColor = shade(opts.roof || d.roof, ((vs * 7) % 1 - 0.5) * 0.16);
       var style = d.style || "hut";
-      var w = d.width || 0.82;
+      var w = (d.width || 0.82) * (0.97 + vs * 0.06);
 
       /* Ombre portée vers le sud-est, comme toutes les ombres du jeu. */
       ctx.save();
@@ -405,7 +422,7 @@
       ctx.restore();
 
       if (style === "field") {
-        Art.field(ctx, sx, sy, k, d);
+        Art.field(ctx, sx, sy, k, d, opts.growth);
         ctx.restore();
         return;
       }
@@ -441,8 +458,10 @@
       /* Accessoires : c'est à eux qu'on reconnaît le métier d'un coup d'œil. */
       switch (style) {
         case "house":
-          Art.chimney(ctx, sx - u * 3.5, sy - h - u * 1.5, k);
-          if (opts.now !== undefined) Art.smoke(ctx, sx - u * 2.3, sy - h - u * 7, k, opts.seed || 0, opts.now);
+          /* La cheminée passe d'un rampant à l'autre selon l'exemplaire. */
+          var side = vs > 0.5 ? -1 : 1;
+          Art.chimney(ctx, sx + side * u * 3.5 - u * 1.2, sy - h - u * 1.5, k);
+          if (opts.now !== undefined) Art.smoke(ctx, sx + side * u * 3.5, sy - h - u * 7, k, opts.seed || 0, opts.now);
           break;
         case "lumber": Art.logs(ctx, sx - u * 9, sy + hh * 0.75, k); break;
         case "quarry": Art.stones(ctx, sx - u * 9, sy + hh * 0.75, k); break;
@@ -456,30 +475,41 @@
 
     /* Champ : pas de volume, des sillons. Un champ en cube aurait l'air d'un
        entrepôt peint en jaune. */
-    field: function (ctx, sx, sy, k, d) {
+    field: function (ctx, sx, sy, k, d, growth) {
       var lw = Math.max(1, k * 0.6);
       var hw = (C.TW / 2) * k * 0.92, hh = (C.TH / 2) * k * 0.92;
+      var g = growth === undefined ? 1 : growth;
+
+      /* Le champ suit les saisons du village : terre nue, pousses vertes,
+         puis blé mûr. Voir un champ changer de couleur en trois journées vaut
+         tous les compteurs du monde. */
+      var crop = g < 0.35 ? "#7ea54f" : (g < 0.7 ? "#b9bf58" : d.color);
 
       poly(ctx, V.Iso.diamond(sx, sy, k * 0.96), "#9c7c46", OUTLINE, lw);
-      poly(ctx, V.Iso.diamond(sx, sy - k * 0.9, k * 0.92), d.color, null);
+      poly(ctx, V.Iso.diamond(sx, sy - k * 0.9, k * 0.92), crop, null);
 
       for (var i = 1; i <= 4; i++) {
         var t = i / 5;
         ctx.beginPath();
         ctx.moveTo(sx - hw + hw * t, sy - k * 0.9 + hh - hh * t);
         ctx.lineTo(sx + hw * t, sy - k * 0.9 - hh + hh * t);
-        ctx.strokeStyle = shade(d.color, -0.24);
+        ctx.strokeStyle = shade(crop, -0.24);
         ctx.lineWidth = Math.max(1, k * 0.7);
         ctx.stroke();
       }
 
-      /* Quelques épis qui dépassent, sinon le champ reste une nappe. */
-      for (var j = 0; j < 7; j++) {
-        var a = (j * 0.37) % 1, b = (j * 0.61) % 1;
-        var dx = (a - 0.5) * hw * 1.3, dy = (b - 0.5) * hh * 1.3;
-        if (Math.abs(dx) / hw + Math.abs(dy) / hh > 0.7) continue;
-        ctx.fillStyle = "#ffd15c";
-        ctx.fillRect(Math.round(sx + dx), Math.round(sy - k * 2.2 + dy), Math.max(1, k * 0.8), Math.max(1, k * 1.8));
+      /* Les épis ne sortent qu'à maturité, et grandissent avec elle. */
+      if (g > 0.45) {
+        for (var j = 0; j < 7; j++) {
+          var a = (j * 0.37) % 1, b = (j * 0.61) % 1;
+          var dx = (a - 0.5) * hw * 1.3, dy = (b - 0.5) * hh * 1.3;
+          if (Math.abs(dx) / hw + Math.abs(dy) / hh > 0.7) continue;
+          ctx.fillStyle = g > 0.7 ? "#ffd15c" : "#cfd06a";
+          ctx.fillRect(
+            Math.round(sx + dx), Math.round(sy - k * 1.2 - k * g + dy),
+            Math.max(1, k * 0.8), Math.max(1, k * (0.8 + g * 1.4))
+          );
+        }
       }
     },
 

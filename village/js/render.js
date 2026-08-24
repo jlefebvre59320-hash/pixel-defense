@@ -37,7 +37,18 @@
       && World.building(c, r) === 0;
   }
 
+  /* Les passants visent en priorité les chemins : c'est ainsi qu'on obtient
+     du va-et-vient le long des routes plutôt que des gens qui traversent les
+     champs en diagonale. */
   function wanderTarget() {
+    var keys = Object.keys(roads.set);
+    if (keys.length && Math.random() < 0.8) {
+      for (var t = 0; t < 8; t++) {
+        var parts = keys[Math.floor(Math.random() * keys.length)].split(",");
+        var rc = +parts[0], rr = +parts[1];
+        if (walkable(rc, rr)) return { c: rc, r: rr };
+      }
+    }
     for (var tries = 0; tries < 20; tries++) {
       var c = World.hall.c + Math.round((Math.random() - 0.5) * World.territory * 2);
       var r = World.hall.r + Math.round((Math.random() - 0.5) * World.territory * 2);
@@ -51,6 +62,7 @@
      un village plutôt qu'une collection de cabanes. Recalculé seulement quand
      le village change. */
   var roads = { version: -1, set: {} };
+
 
   function markRoad(set, c, r) {
     if (!World.inBounds(c, r)) return;
@@ -89,7 +101,10 @@
           c: start.c, r: start.r, to: wanderTarget(),
           speed: 0.6 + Math.random() * 0.5,
           bob: Math.random() * 6,
-          skin: Math.random() > 0.5 ? "villager1" : "villager2"
+          skin: Math.random() > 0.5 ? "villager1" : "villager2",
+          /* Un villageois sur trois porte quelque chose : c'est ce détail qui
+             fait qu'on croit à une économie plutôt qu'à une promenade. */
+          load: Math.random() < 0.34 ? ["#c9a05a", "#b4523f", "#d8bd5e"][Math.floor(Math.random() * 3)] : null
         });
       }
       while (villagers.length > want) villagers.pop();
@@ -145,7 +160,7 @@
             var shallow = World.tile(c - 1, r) !== World.WATER || World.tile(c + 1, r) !== World.WATER
               || World.tile(c, r - 1) !== World.WATER || World.tile(c, r + 1) !== World.WATER;
             color = shallow ? COLORS.shallow : (wave ? COLORS.water : COLORS.waterAlt);
-          } else if (road) {
+          } else if (road || World.building(c, r) !== 0) {
             color = World.speck(c, r, 0) > 0.5 ? COLORS.road : COLORS.roadAlt;
           } else if (t === World.SAND) {
             color = COLORS.sand;
@@ -274,7 +289,14 @@
           if (!visible(pos)) continue;
           var def = Sim.def(it.b.type);
           var selected = view.selected && view.selected.c === it.b.c && view.selected.r === it.b.r;
-          Art.building(ctx, pos.x, pos.y, k, def, { spin: now / 400, now: now, seed: it.b.id });
+          Art.building(ctx, pos.x, pos.y, k, def, {
+            spin: now / 400,
+            now: now,
+            seed: it.b.id,
+            variant: it.b.id,
+            /* Maturité du champ : trois journées du semis à la moisson. */
+            growth: ((st.t - it.b.built) / (C.DAY * 3)) % 1
+          });
           if (selected) {
             Art.tileOutline(ctx, pos.x, pos.y, k, "rgba(255,216,77,0.95)", Math.max(1, k));
           }
@@ -291,6 +313,13 @@
           ctx.fill();
           ctx.restore();
           Art.drawFoot(ctx, it.v.skin, pos.x, pos.y + bob, Math.max(1, k));
+          if (it.v.load) {
+            var s2 = Math.max(1, k * 2.4);
+            ctx.fillStyle = "rgba(24,18,10,0.85)";
+            ctx.fillRect(Math.round(pos.x - s2 / 2 - k * 0.3), Math.round(pos.y + bob - k * 10.4), s2 + k * 0.6, s2 + k * 0.6);
+            ctx.fillStyle = it.v.load;
+            ctx.fillRect(Math.round(pos.x - s2 / 2), Math.round(pos.y + bob - k * 10.1), s2, s2);
+          }
         }
       }
 
