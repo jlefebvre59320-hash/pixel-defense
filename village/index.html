@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Village — un bâtisseur isométrique en pixel art : une clairière, six habitants, et une ville à faire naître. Jouable au doigt, hors ligne.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Village">
+<title>Village — bâtisseur isométrique</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header id="hud">
+    <div class="res-row">
+      <div class="res wood"><span class="lab">Bois</span><b id="v-wood">0</b></div>
+      <div class="res stone"><span class="lab">Pierre</span><b id="v-stone">0</b></div>
+      <div class="res grain"><span class="lab">Grain</span><b id="v-grain">0</b></div>
+      <div class="res bread"><span class="lab">Pain</span><b id="v-bread">0</b></div>
+      <div class="res gold"><span class="lab">Or</span><b id="v-gold">0</b></div>
+    </div>
+    <div class="meta-row">
+      <div class="meta"><span class="lab">Habitants</span><b id="v-pop">6/6</b></div>
+      <div class="meta"><span class="lab">Temps</span><b id="v-day">J0</b></div>
+      <div class="meta"><span class="lab">Main-d'œuvre</span><b id="v-work">100 %</b></div>
+    </div>
+  </header>
+
+  <div id="map">
+    <canvas id="board" role="img" aria-label="Vue isométrique du village : une clairière, l'hôtel de ville au centre, des bois et des rochers alentour."></canvas>
+
+    <div id="zoom">
+      <button id="btn-zoom-in" class="round" type="button" aria-label="Zoomer">+</button>
+      <button id="btn-zoom-out" class="round" type="button" aria-label="Dézoomer">−</button>
+      <button id="btn-center" class="round" type="button" aria-label="Recentrer sur l'hôtel de ville">⌂</button>
+    </div>
+
+    <div id="overlay" class="overlay hidden"></div>
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <div id="sheet" class="sheet hidden"></div>
+
+  <footer id="bar">
+    <button id="btn-village" class="btn primary grow" type="button">Le village</button>
+    <button id="btn-speed" class="btn ghost" type="button" aria-label="Vitesse du temps">×1</button>
+    <button id="btn-pause" class="btn ghost" type="button" aria-label="Pause">❚❚</button>
+    <button id="btn-sound" class="btn ghost" type="button" aria-label="Son">♪</button>
+  </footer>
+
+</div>
+
+<noscript>
+  <p style="color:#eef1f7;font-family:monospace;padding:20px">
+    Village a besoin de JavaScript : tout le jeu tourne dans votre navigateur,
+    il n'y a pas de serveur pour le remplacer.
+  </p>
+</noscript>
+
+<script src="js/config.js"></script>
+<script src="js/world.js"></script>
+<script src="js/iso.js"></script>
+<script src="js/art.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/render.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

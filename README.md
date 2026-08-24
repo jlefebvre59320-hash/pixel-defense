@@ -1,9 +1,26 @@
+# Pixel Defense & Village
+
+Deux jeux pensés pour le téléphone : on y joue au doigt, d'une seule main, sans
+rien installer et sans réseau. Pas de moteur, pas de framework, pas de
+`npm install` — du HTML, du CSS, un `<canvas>`, et des dessins écrits dans le
+code.
+
+| Jeu | Genre | Où |
+| --- | --- | --- |
+| **Pixel Defense** | Tower defense, 20 vagues | racine du dépôt, plus un portage [Godot](godot) |
+| **[Village](village)** | Bâtisseur isométrique, temps compressé | [`village/`](village) |
+
+Les deux partagent la même façon d'être faits : une simulation qui ne connaît
+que des cases et des secondes, un rendu qui est seul à parler en pixels, une
+interface en vrais boutons — et un robot d'équilibrage qui joue des parties
+entières en ligne de commande pour vérifier les réglages.
+
+---
+
 # Pixel Defense
 
-Un **tower defense en pixel art**, pensé pour le téléphone : on y joue au
-doigt, d'une seule main, sans rien installer et sans réseau.
-
-Le jeu existe en **deux versions, mêmes règles et mêmes chiffres** :
+Un **tower defense en pixel art**. Il existe en **deux versions, mêmes règles et
+mêmes chiffres** :
 
 | | Où | Pour quoi faire |
 | --- | --- | --- |
@@ -196,6 +213,71 @@ Pages : **Settings → Pages → Source : GitHub Actions**.
 Après une modification, penser à changer le numéro de version en tête de
 `sw.js` (`pixel-defense-v1` → `v2`) : c'est ce qui remplace le cache des
 joueurs qui ont déjà installé le jeu.
+
+---
+
+# Village
+
+Un **bâtisseur de village en 2D isométrique**, dans le dossier
+[`village/`](village). Même esprit que Pixel Defense — du HTML, du CSS, un
+`<canvas>`, aucune dépendance — mais un jeu tout autre : on ne défend pas, on
+construit.
+
+![Le village en cours de partie](docs/screenshot-village.png)
+
+**Le principe.** Une clairière, six habitants, une hache. Chaque journée dure
+six secondes : les habitants mangent, la population grandit si le grenier
+suit, et le village devient tour à tour hameau, bourg, puis ville à
+120 âmes.
+
+**Ce qui fait le jeu, c'est le placement.** Chaque bâtiment annonce, avant
+l'achat, ce qu'il produirait *sur cette case précise* : une bûcheronnerie vaut
+0,90 bois/s au milieu d'un bosquet et 0,15 en pleine prairie ; un champ étouffé
+entre deux maisons ne nourrit personne. Trois contraintes s'entremêlent :
+
+- **les vivres** — un habitant mange 0,9 ration par jour, le pain en vaut deux,
+  d'où le moulin ;
+- **la main-d'œuvre** — 60 % des habitants travaillent ; trop d'ateliers pour
+  trop peu de monde et tout tourne au ralenti, à commencer par les champs ;
+- **la place** — le territoire est un carré doré qu'on repousse à prix d'or.
+
+Se déplacer : **glisser** ; zoomer : **+ / −** ou le pincement ; construire :
+**appuyer sur une case libre**. La partie se sauvegarde toute seule et se
+reprend au même endroit.
+
+```
+village/js/config.js    Tout l'équilibrage : bâtiments, économie, rythme du temps
+village/js/world.js     Carte tirée d'un bruit déterministe, territoire, voisinage
+village/js/iso.js       Projection isométrique, caméra, désignation d'une case
+village/js/art.js       Dessin : volumes, toitures, sprites en caractères
+village/js/sim.js       La simulation : production, vivres, population, or
+village/js/render.js    Une trame : sol, tri par profondeur, passants
+village/js/ui.js        Interface DOM : bandeau, panneaux, écrans
+village/js/main.js      Boucle, doigt, écrans, sauvegarde
+village/tools/simulate.mjs  Robot d'équilibrage (Node, sans navigateur)
+```
+
+### Régler l'équilibrage
+
+```
+cd village && node tools/simulate.mjs 3
+```
+
+Le simulateur fait jouer trois profils et sort la seule chose qui compte : un
+village bien tenu atteint-il la ville, un village mal tenu meurt-il ?
+
+```
+novice   {"issue":"village vidé","jour":14,"habitants":0,"sommet":9}
+prudent  {"issue":"ville","jour":109,"habitants":120,"famines":0}
+gourmand {"issue":"inachevé","jour":600,"habitants":36}
+```
+
+C'est cet outil qui a débusqué les deux défauts de conception du premier jet :
+un village sans bois ne pouvait plus jamais bâtir la bûcheronnerie qui produit
+le bois (d'où la corvée de l'hôtel de ville), et un territoire plein sans
+marché ne pouvait plus jamais s'agrandir (d'où l'impôt). Le profil
+« gourmand », lui, décrit un vrai piège du jeu : entasser les champs par
+prudence consomme le bois qui manquera ensuite pour loger qui que ce soit.
 
 ## Licence
 
