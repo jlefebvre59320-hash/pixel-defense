@@ -8,3 +8,19 @@ godot/android/
 godot/build/
 # Jamais versionné : Godot y écrit les mots de passe du keystore de signature.
 godot/export_presets.cfg
+
+# Unreal Engine
+unreal/Binaries/
+unreal/Build/
+unreal/DerivedDataCache/
+unreal/Intermediate/
+unreal/Saved/
+unreal/.vs/
+unreal/.idea/
+*.VC.db
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
