@@ -1,0 +1,31 @@
+{
+  "name": "build_test_arena",
+  "description": "Contrôle le moteur, puis construit une arène de test jouable dans /Game/Maps/TestArena.",
+  "steps": [
+    {
+      "name": "Contrôle du moteur",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true,
+      "comment": "Informatif : le contrôle sort en erreur si une extension manque, mais l'arène se construit quand même avec ce qui est disponible."
+    },
+    {
+      "name": "Construction de l'arène",
+      "script": "unreal/Content/Python/build_test_arena.py",
+      "params": {
+        "level_path": "/Game/Maps/TestArena",
+        "tiles_x": 16,
+        "tiles_y": 16,
+        "tile_size": 200.0,
+        "wall_height": 400.0,
+        "spawn": [1, 1],
+        "obstacles": [
+          [4, 4], [4, 5], [5, 4],
+          [11, 11], [11, 10], [10, 11],
+          [7, 8], [8, 7]
+        ],
+        "new_level": true,
+        "save": true
+      }
+    }
+  ]
+}

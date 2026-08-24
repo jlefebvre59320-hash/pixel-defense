@@ -279,6 +279,27 @@ marché ne pouvait plus jamais s'agrandir (d'où l'impôt). Le profil
 « gourmand », lui, décrit un vrai piège du jeu : entasser les champs par
 prudence consomme le bois qui manquera ensuite pour loger qui que ce soit.
 
+---
+
+# Pont Unreal
+
+Un outil, pas un jeu : [`tools/unreal_bridge/`](tools/unreal_bridge) exécute du
+Python **dans un éditeur Unreal ouvert**, depuis le terminal.
+
+```
+python3 tools/unreal_bridge/bridge.py ping
+python3 tools/unreal_bridge/bridge.py run-script unreal/Content/Python/healthcheck.py
+python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/build_test_arena.json
+```
+
+> Le pont n'a jamais parlé à un vrai éditeur : Unreal n'est pas installable là
+> où ce code a été écrit. Il est vérifié contre un faux éditeur qui rejoue le
+> protocole. Détails et limites : [`tools/unreal_bridge/README.md`](tools/unreal_bridge/README.md).
+
+```
+python3 tools/unreal_bridge/tests/test_bridge.py
+```
+
 ## Licence
 
 MIT — voir [LICENSE](LICENSE).
