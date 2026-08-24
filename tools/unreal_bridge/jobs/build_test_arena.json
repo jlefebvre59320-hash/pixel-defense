@@ -1,0 +1,5 @@
+{
+  "action": "run_script",
+  "script": "unreal/Content/Python/build_test_arena.py",
+  "headless": false
+}
