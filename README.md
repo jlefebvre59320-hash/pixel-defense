@@ -292,6 +292,11 @@ python3 tools/unreal_bridge/bridge.py run-script unreal/Content/Python/healthche
 python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/build_test_arena.json
 ```
 
+Sur macOS, le moteur est repéré tout seul dans `/Users/Shared/Epic Games/UE_*`
+(la version la plus récente d'abord), et `--verbose` dit en une ligne si le
+multicast passe — c'est presque toujours l'autorisation **Réseau local** qui
+manque.
+
 > Le pont n'a jamais parlé à un vrai éditeur : Unreal n'est pas installable là
 > où ce code a été écrit. Il est vérifié contre un faux éditeur qui rejoue le
 > protocole. Détails et limites : [`tools/unreal_bridge/README.md`](tools/unreal_bridge/README.md).

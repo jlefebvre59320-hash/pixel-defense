@@ -32,6 +32,51 @@ envoie du code à un éditeur **déjà ouvert** et rapporte ce qu'il en sort.
 3. Laisser l'éditeur ouvert, sur la même machine que le terminal : le multicast
    d'Unreal a un TTL de 0 par défaut et ne sort pas de la machine.
 
+## Sur macOS
+
+Un quatrième point, invisible et de loin le plus fréquent : **l'autorisation
+« Réseau local »**. Depuis Ventura, macOS jette les paquets multicast d'une
+application qui ne l'a pas — sans erreur, sans journal, sans rien. Le pont a
+l'air de fonctionner et ne trouve jamais l'éditeur.
+
+*Réglages Système → Confidentialité et sécurité → Réseau local* → activer le
+terminal utilisé (Terminal, iTerm, ou l'éditeur de code d'où la commande est
+lancée). L'autorisation est demandée à la première tentative ; si vous avez
+répondu « Refuser », il faut la rétablir à la main.
+
+`ping --verbose` tranche la question en une ligne :
+
+```
+$ python3 tools/unreal_bridge/bridge.py --verbose ping
+
+--- diagnostic ---
+système           : darwin (python 3.11.9)
+groupe multicast  : 239.0.0.1:6766 (TTL 0, écoute sur 0.0.0.0)
+retour attendu    : 127.0.0.1:6776
+adresses locales  : 127.0.0.1, 192.168.1.24
+moteur trouvé     : /Users/Shared/Epic Games/UE_5.4/Engine/Plugins/…/remote_execution.py
+
+  envoyé  239.0.0.1:6766         ping             7d648c4a-… (nous)
+  reçu    192.168.1.24:6766      ping             7d648c4a-… (nous)
+
+La boucle multicast fonctionne : notre propre ping nous revient.
+Le multicast n'est donc pas en cause — c'est l'éditeur qui ne répond pas.
+```
+
+Si notre propre ping **ne revient pas**, c'est l'autorisation « Réseau local »
+(ou un pare-feu). S'il revient et que l'éditeur reste muet, le problème est
+dans les trois points ci-dessus.
+
+Le moteur est cherché tout seul dans `/Users/Shared/Epic Games/UE_*`,
+`/Applications/Epic Games/UE_*` et `~/Epic Games/UE_*`, la version la plus
+récente d'abord. `--engine-dir` désigne une racine précise — et fait alors
+autorité : si elle ne contient pas `remote_execution.py`, le pont utilise son
+implémentation embarquée plutôt que de partir en douce vers un autre moteur.
+
+Deux réglages sont là si le défaut ne convient pas : `--group-host` /
+`--group-port` (si vous avez changé le groupe multicast dans les paramètres du
+projet) et `--bind` (pour forcer l'interface d'écoute).
+
 `bridge.py ping` doit alors afficher une ligne par éditeur :
 
 ```
@@ -112,10 +157,11 @@ avertissement nommé, pas un script mort à mi-chemin.
 python3 tools/unreal_bridge/tests/test_bridge.py
 ```
 
-27 vérifications, sans Unreal : découpage du flux TCP, refus des travaux mal
-formés, découverte par multicast, exécution d'un fichier, enchaînement d'un
-travail, arrêt sur échec, et le contenu exact de l'arène produite (16 acteurs,
-le sol à la bonne échelle, le départ sur la bonne tuile).
+46 vérifications, sans Unreal : découpage du flux TCP, refus des travaux mal
+formés, repérage du moteur sur une arborescence Mac factice, message d'aide
+propre à macOS, découverte par multicast, exécution d'un fichier, enchaînement
+d'un travail, arrêt sur échec, et le contenu exact de l'arène produite
+(16 acteurs, le sol à la bonne échelle, le départ sur la bonne tuile).
 
 En face, deux doublons :
 
@@ -125,6 +171,7 @@ En face, deux doublons :
   signatures) pour que les scripts s'exécutent vraiment. Il ne reproduit pas le
   moteur.
 
-C'est ce banc qui a attrapé le seul vrai défaut du premier jet : les paramètres
+C'est ce banc qui a attrapé les deux vrais défauts du code : les paramètres
 d'un travail étaient injectés avec `json.dumps`, qui écrit `true` — un nom que
-Python ne connaît pas. Le script tombait à la première ligne.
+Python ne connaît pas, le script tombait à la première ligne ; et un
+`--engine-dir` erroné retombait en silence sur une autre installation d'Unreal.

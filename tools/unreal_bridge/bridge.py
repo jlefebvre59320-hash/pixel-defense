@@ -229,18 +229,31 @@ class Bridge:
 
     # -- découverte ---------------------------------------------------------
 
-    def discover(self, timeout: float = 2.0) -> list[dict]:
-        """Renvoie la liste des éditeurs qui répondent, sans doublon."""
+    def discover(self, timeout: float = 2.0, trace: list | None = None) -> list[dict]:
+        """Renvoie la liste des éditeurs qui répondent, sans doublon.
+
+        `trace`, s'il est fourni, reçoit tout ce qui passe sur le groupe — y
+        compris nos propres messages. Voir notre ping revenir prouve que la
+        boucle multicast fonctionne ; ne pas le voir désigne le coupable
+        (pare-feu, autorisation « réseau local » sur macOS).
+        """
         self._udp.sendto(_message(TYPE_PING, self.node_id), self.group)
+        if trace is not None:
+            trace.append(("envoyé", "%s:%d" % self.group, TYPE_PING, self.node_id, True))
 
         found: dict[str, dict] = {}
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
-                payload, _addr = self._udp.recvfrom(65535)
+                payload, addr = self._udp.recvfrom(65535)
             except socket.timeout:
                 continue
             msg = _parse(payload)
+            if trace is not None:
+                source = (msg or {}).get("source", "?")
+                trace.append(("reçu", "%s:%d" % addr,
+                              msg.get("type") if msg else "<hors protocole>",
+                              source, source == self.node_id))
             if not msg or msg.get("type") != TYPE_PONG:
                 continue
             source = msg.get("source")
@@ -300,31 +313,115 @@ class Bridge:
 # --- Implémentation d'Epic, si le moteur est là ------------------------------
 
 
+# Là où Epic installe le moteur, par système. Le Mac d'abord : c'est le poste
+# depuis lequel ce pont est utilisé.
+ENGINE_ROOT_GLOBS = {
+    "darwin": [
+        "/Users/Shared/Epic Games/UE_*",
+        "/Applications/Epic Games/UE_*",
+        "~/Epic Games/UE_*",
+        "~/UnrealEngine",
+    ],
+    "win32": [
+        "C:/Program Files/Epic Games/UE_*",
+        "D:/Epic Games/UE_*",
+    ],
+    "linux": [
+        "/opt/UnrealEngine",
+        "/opt/unreal-engine",
+        "~/UnrealEngine",
+    ],
+}
+
+# Le greffon Python a déménagé d'une version à l'autre : on essaie les endroits
+# connus, puis on balaie `Engine/Plugins` sur deux niveaux. Pas de balayage
+# récursif complet : une installation d'Unreal, c'est des centaines de milliers
+# de fichiers.
+_MODULE_PATHS = [
+    "Engine/Plugins/Experimental/PythonScriptPlugin/Content/Python/remote_execution.py",
+    "Engine/Plugins/PythonScriptPlugin/Content/Python/remote_execution.py",
+    "Plugins/Experimental/PythonScriptPlugin/Content/Python/remote_execution.py",
+]
+_MODULE_GLOBS = [
+    "Engine/Plugins/*/PythonScriptPlugin/Content/Python/remote_execution.py",
+    "Engine/Plugins/*/*/PythonScriptPlugin/Content/Python/remote_execution.py",
+]
+
+
+def engine_roots(engine_dir: str | None) -> list[Path]:
+    """Racines d'Unreal à essayer, de la plus explicite à la plus devinée."""
+    roots: list[Path] = []
+
+    def add(path: Path):
+        if path not in roots:
+            roots.append(path)
+
+    if engine_dir:
+        add(Path(engine_dir).expanduser())
+    for var in ("UE_ENGINE_DIR", "UNREAL_ENGINE_DIR", "UE_ROOT"):
+        if os.environ.get(var):
+            add(Path(os.environ[var]).expanduser())
+
+    # Une racine désignée à la main fait autorité, même si elle est fausse :
+    # retomber en douce sur un autre moteur ferait exécuter le script ailleurs
+    # que là où on l'a demandé.
+    if roots:
+        return roots
+
+    patterns = ENGINE_ROOT_GLOBS.get(sys.platform)
+    if patterns is None:
+        patterns = ENGINE_ROOT_GLOBS["linux"]
+    found = []
+    for pattern in patterns:
+        expanded = os.path.expanduser(pattern)
+        base, _, tail = expanded.partition("*")
+        if tail or "*" in expanded:
+            parent = Path(base).parent
+            try:
+                found.extend(parent.glob(Path(expanded).name))
+            except OSError:
+                pass
+        elif Path(expanded).exists():
+            found.append(Path(expanded))
+    # UE_5.4 avant UE_5.1 : la version la plus récente d'abord.
+    for path in sorted(set(found), reverse=True):
+        add(path)
+    return roots
+
+
+def find_engine_module(engine_dir: str | None) -> Path | None:
+    """Chemin de `remote_execution.py` livré par Epic, s'il est trouvable."""
+    for root in engine_roots(engine_dir):
+        if not root.exists():
+            continue
+        for rel in _MODULE_PATHS:
+            module = root / rel
+            if module.exists():
+                return module
+        for pattern in _MODULE_GLOBS:
+            try:
+                for module in sorted(root.glob(pattern)):
+                    return module
+            except OSError:
+                continue
+    return None
+
+
 def _engine_remote_execution(engine_dir: str | None):
     """Charge `remote_execution.py` livré avec Unreal, s'il est trouvable.
 
     Renvoie le module, ou None. On préfère toujours le module d'Epic : c'est la
     définition du protocole, pas une interprétation.
     """
-    candidates = []
-    if engine_dir:
-        candidates.append(Path(engine_dir))
-    for var in ("UE_ENGINE_DIR", "UNREAL_ENGINE_DIR", "UE_ROOT"):
-        if os.environ.get(var):
-            candidates.append(Path(os.environ[var]))
-
-    for root in candidates:
-        module = root / "Engine" / "Plugins" / "Experimental" / "PythonScriptPlugin" / "Content" / "Python" / "remote_execution.py"
-        if not module.exists():
-            module = root / "Plugins" / "Experimental" / "PythonScriptPlugin" / "Content" / "Python" / "remote_execution.py"
-        if module.exists():
-            sys.path.insert(0, str(module.parent))
-            try:
-                import remote_execution  # type: ignore
-                return remote_execution
-            except ImportError:
-                continue
-    return None
+    module = find_engine_module(engine_dir)
+    if module is None:
+        return None
+    sys.path.insert(0, str(module.parent))
+    try:
+        import remote_execution  # type: ignore
+        return remote_execution
+    except ImportError:
+        return None
 
 
 # --- Travaux (« jobs ») ------------------------------------------------------
@@ -411,9 +508,77 @@ def _report(result: dict, as_json: bool) -> int:
 # --- Sous-commandes ----------------------------------------------------------
 
 
+def _local_addresses() -> list[str]:
+    """Adresses IPv4 de la machine, pour le compte rendu détaillé."""
+    addresses = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addresses.add(info[4][0])
+    except OSError:
+        pass
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))       # adresse de documentation : rien n'est envoyé
+        addresses.add(probe.getsockname()[0])
+    except OSError:
+        pass
+    finally:
+        probe.close()
+    return sorted(addresses)
+
+
+def _diagnose(args, trace: list) -> None:
+    """Ce que le pont a vu — à lire quand rien ne répond."""
+    print("", file=sys.stderr)
+    print("--- diagnostic ---", file=sys.stderr)
+    print("système           : %s (python %s)"
+          % (sys.platform, sys.version.split()[0]), file=sys.stderr)
+    print("groupe multicast  : %s:%d (TTL %d, écoute sur %s)"
+          % (args.group_host, args.group_port, args.ttl, args.bind), file=sys.stderr)
+    print("retour attendu    : %s:%d" % (args.host, args.port), file=sys.stderr)
+    print("adresses locales  : %s" % ", ".join(_local_addresses()), file=sys.stderr)
+
+    module = find_engine_module(args.engine_dir)
+    if module:
+        print("moteur trouvé     : %s" % module, file=sys.stderr)
+    elif args.engine_dir:
+        print("moteur trouvé     : non — %s ne contient pas remote_execution.py ;\n"
+              "                    implémentation embarquée" % args.engine_dir,
+              file=sys.stderr)
+    else:
+        print("moteur trouvé     : non — implémentation embarquée", file=sys.stderr)
+    roots = engine_roots(args.engine_dir)
+    if roots:
+        print("racines essayées  : %s" % ", ".join(str(r) for r in roots), file=sys.stderr)
+
+    print("", file=sys.stderr)
+    if not trace:
+        print("Aucun paquet, pas même le nôtre.", file=sys.stderr)
+    for kind, addr, msg_type, source, mine in trace:
+        print("  %-7s %-22s %-16s %s%s"
+              % (kind, addr, msg_type, source, " (nous)" if mine else ""),
+              file=sys.stderr)
+
+    echo = any(kind == "reçu" and mine for kind, _, _, _, mine in trace)
+    print("", file=sys.stderr)
+    if echo:
+        print("La boucle multicast fonctionne : notre propre ping nous revient.\n"
+              "Le multicast n'est donc pas en cause — c'est l'éditeur qui ne répond pas.",
+              file=sys.stderr)
+    else:
+        print("Notre propre ping ne nous revient pas : le multicast est bloqué\n"
+              "avant même de sortir. Sur macOS, c'est presque toujours\n"
+              "l'autorisation « Réseau local » — voir plus haut.", file=sys.stderr)
+
+
 def cmd_ping(args) -> int:
-    with Bridge(command_endpoint=(args.host, args.port)) as bridge:
-        nodes = bridge.discover(timeout=args.timeout)
+    trace: list = []
+    with Bridge(group=(args.group_host, args.group_port), bind=args.bind, ttl=args.ttl,
+                command_endpoint=(args.host, args.port)) as bridge:
+        nodes = bridge.discover(timeout=args.timeout, trace=trace)
+
+    if nodes and args.verbose:
+        _diagnose(args, trace)
 
     if not nodes:
         print("Aucun éditeur Unreal ne répond.", file=sys.stderr)
@@ -427,6 +592,22 @@ def cmd_ping(args) -> int:
             "     par défaut a un TTL de 0 et ne sort pas de la machine).",
             file=sys.stderr,
         )
+        if sys.platform == "darwin":
+            print(
+                "\nSur macOS, un cinquième point, et c'est le plus fréquent :\n"
+                "  5. le terminal doit avoir l'autorisation « Réseau local ».\n"
+                "     Réglages Système → Confidentialité et sécurité → Réseau local\n"
+                "     → activez Terminal (ou iTerm, ou votre éditeur de code).\n"
+                "     Sans elle, macOS jette les paquets multicast sans rien dire.\n"
+                "     L'autorisation est demandée à la première tentative : si vous\n"
+                "     avez répondu « Refuser », il faut la rétablir à la main.",
+                file=sys.stderr,
+            )
+        if args.verbose:
+            _diagnose(args, trace)
+        else:
+            print("\nPour voir ce que le pont a réellement reçu : ajoutez --verbose.",
+                  file=sys.stderr)
         return 2
 
     if args.json:
@@ -483,14 +664,16 @@ def cmd_run_script(args) -> int:
         finally:
             conn.stop()
 
-    with Bridge(command_endpoint=(args.host, args.port)) as bridge:
+    with Bridge(group=(args.group_host, args.group_port), bind=args.bind,
+                ttl=args.ttl, command_endpoint=(args.host, args.port)) as bridge:
         node = _pick_node(bridge, args.node, args.discover_timeout)
         result = bridge.run(code, node, MODE_EXEC_FILE, args.timeout)
     return _report(result, args.json)
 
 
 def cmd_run(args) -> int:
-    with Bridge(command_endpoint=(args.host, args.port)) as bridge:
+    with Bridge(group=(args.group_host, args.group_port), bind=args.bind,
+                ttl=args.ttl, command_endpoint=(args.host, args.port)) as bridge:
         node = _pick_node(bridge, args.node, args.discover_timeout)
         mode = MODE_EVAL_STATEMENT if args.eval else MODE_EXEC_STATEMENT
         result = bridge.run(args.code, node, mode, args.timeout)
@@ -516,7 +699,8 @@ def cmd_run_job(args) -> int:
 
     results = []
     failed = 0
-    with Bridge(command_endpoint=(args.host, args.port)) as bridge:
+    with Bridge(group=(args.group_host, args.group_port), bind=args.bind,
+                ttl=args.ttl, command_endpoint=(args.host, args.port)) as bridge:
         node = _pick_node(bridge, args.node, args.discover_timeout)
         with bridge.connect(node, args.timeout) as session:
             for i, (step, code, mode) in enumerate(prepared, 1):
@@ -567,6 +751,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--discover-timeout", type=float, default=2.0,
                         help="durée d'attente des réponses, en secondes")
     parser.add_argument("--engine-dir", help="racine d'Unreal, pour utiliser le module d'Epic")
+    parser.add_argument("--group-host", default=DEFAULT_MULTICAST_GROUP[0],
+                        help="groupe multicast d'Unreal (défaut : 239.0.0.1)")
+    parser.add_argument("--group-port", type=int, default=DEFAULT_MULTICAST_GROUP[1],
+                        help="port multicast d'Unreal (défaut : 6766)")
+    parser.add_argument("--bind", default=DEFAULT_MULTICAST_BIND,
+                        help="interface d'écoute du multicast (défaut : 0.0.0.0)")
+    parser.add_argument("--ttl", type=int, default=DEFAULT_MULTICAST_TTL,
+                        help="TTL multicast ; 0 = ne sort pas de la machine")
+    parser.add_argument("--verbose", action="store_true",
+                        help="détaille ce que le pont envoie et reçoit")
     parser.add_argument("--json", action="store_true", help="compte rendu brut, en JSON")
 
     sub = parser.add_subparsers(dest="command", required=True)

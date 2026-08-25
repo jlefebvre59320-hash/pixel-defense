@@ -16,6 +16,7 @@ tête de `fake_editor.py`.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -205,27 +206,110 @@ def test_no_editor(tmp: Path):
           "Enable Remote" in proc.stderr, proc.stderr.strip()[:200])
 
 
+
+# --- Trouver le moteur d'Epic (pas de réseau) --------------------------------
+
+
+def test_engine_discovery(tmp: Path):
+    print("Repérage du moteur")
+    epic = tmp / "Epic Games"
+    layouts = {
+        "UE_5.1": "Engine/Plugins/Experimental/PythonScriptPlugin/Content/Python",
+        "UE_5.4": "Engine/Plugins/Experimental/PythonScriptPlugin/Content/Python",
+        # 5.6 a sorti le greffon d'« Experimental » : le balayage doit le suivre.
+        "UE_5.6": "Engine/Plugins/Editor/PythonScriptPlugin/Content/Python",
+    }
+    for version, rel in layouts.items():
+        d = epic / version / rel
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "remote_execution.py").write_text("# %s\n" % version, encoding="utf-8")
+
+    saved_globs = dict(B.ENGINE_ROOT_GLOBS)
+    saved_platform = sys.platform
+    try:
+        B.ENGINE_ROOT_GLOBS["darwin"] = [str(epic / "UE_*")]
+        sys.platform = "darwin"
+
+        roots = [r.name for r in B.engine_roots(None)]
+        check("les installations du Mac sont trouvées",
+              set(roots) == {"UE_5.1", "UE_5.4", "UE_5.6"}, roots)
+        check("la version la plus récente passe devant", roots[0] == "UE_5.6", roots)
+
+        module = B.find_engine_module(None)
+        check("le greffon déplacé hors d'« Experimental » est trouvé",
+              module is not None and "UE_5.6" in str(module), module)
+
+        forced = B.find_engine_module(str(epic / "UE_5.1"))
+        check("--engine-dir prime sur la découverte",
+              forced is not None and "UE_5.1" in str(forced), forced)
+
+        check("une racine désignée mais sans moteur ne retombe pas ailleurs",
+              B.find_engine_module(str(tmp / "nulle-part")) is None,
+              B.find_engine_module(str(tmp / "nulle-part")))
+    finally:
+        B.ENGINE_ROOT_GLOBS.clear()
+        B.ENGINE_ROOT_GLOBS.update(saved_globs)
+        sys.platform = saved_platform
+
+
+def _run_as(platform: str, *args):
+    """Lance le pont en se faisant passer pour un autre système."""
+    code = (
+        "import sys;"
+        "sys.path.insert(0, %r);"
+        "sys.platform = %r;"
+        "import bridge;"
+        "sys.exit(bridge.main(%r))"
+    ) % (str(HERE.parent), platform, list(args))
+    return subprocess.run([sys.executable, "-c", code], cwd=str(ROOT),
+                          capture_output=True, text=True, timeout=30)
+
+
+def test_macos_hint():
+    print("Message d'aide propre à macOS")
+    mac = _run_as("darwin", "ping", "--timeout", "0.5")
+    check("l'autorisation « Réseau local » est citée",
+          "Réseau local" in mac.stderr, mac.stderr[-300:])
+    check("le chemin des réglages est donné",
+          "Confidentialité et sécurité" in mac.stderr, mac.stderr[-300:])
+
+    linux = _run_as("linux", "ping", "--timeout", "0.5")
+    check("… et pas ailleurs", "Réseau local" not in linux.stderr, linux.stderr[-200:])
+
+
+def test_verbose_diagnostic():
+    print("Diagnostic détaillé")
+    proc = run_bridge("--verbose", "ping", "--timeout", "1", timeout=30)
+    check("l'écho de notre propre ping est constaté",
+          "La boucle multicast fonctionne" in proc.stderr, proc.stderr[-300:])
+    check("le groupe multicast est rappelé",
+          "239.0.0.1:6766" in proc.stderr, proc.stderr[-300:])
+    check("l'absence de moteur est dite",
+          "implémentation embarquée" in proc.stderr, proc.stderr[-300:])
+
+
 def main():
     tmp = Path(__file__).resolve().parent / "_tmp"
     tmp.mkdir(exist_ok=True)
 
     test_stream_parsing()
     test_job_validation(tmp)
+    test_engine_discovery(tmp)
     test_no_editor(tmp)       # avant de lancer l'éditeur, forcément
+    test_macos_hint()
 
     print("Démarrage du faux éditeur…")
     editor = FakeEditor().start()
     time.sleep(0.3)
     try:
         test_ping()
+        test_verbose_diagnostic()
         test_healthcheck()
         test_run_job()
         test_job_stops_on_failure(tmp)
     finally:
         editor.stop()
-        for f in tmp.glob("*.json"):
-            f.unlink()
-        tmp.rmdir()
+        shutil.rmtree(tmp, ignore_errors=True)
 
     print("")
     if FAILURES:
