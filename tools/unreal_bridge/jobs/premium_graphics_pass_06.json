@@ -1,0 +1,7 @@
+{
+  "name": "premium-graphics-pass-06",
+  "script": "unreal/Content/Python/premium_graphics_pass_06.py",
+  "params": {},
+  "timeout": 180,
+  "expect": "PREMIUM_GRAPHICS_JSON"
+}
