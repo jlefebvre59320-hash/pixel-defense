@@ -161,8 +161,8 @@
       var path;
 
       if (def.fly) {
-        /* Les drones ignorent le chemin : ils entrent par un point au hasard
-           en haut de l'écran et filent droit sur la base. Une défense massée
+        /* Les harpies ignorent le chemin : elles entrent par un point au hasard
+           en haut de l'écran et filent droit sur la forteresse. Une défense massée
            le long du chemin ne les arrête pas — c'est tout l'intérêt. */
         var x = 1 + Math.random() * (C.COLS - 2);
         path = [{ x: x, y: -1 }, { x: MAP.CORE_POINT.x, y: MAP.CORE_POINT.y }];
@@ -231,7 +231,7 @@
       e.x = e.rawX + (-vy / len) * e.off;
       e.y = e.rawY + (vx / len) * e.off;
 
-      return e.wp >= e.path.length;   // arrivé à la base
+      return e.wp >= e.path.length;   // arrivé à la forteresse
     },
 
     damage: function (st, e, amount, ignoreArmor) {

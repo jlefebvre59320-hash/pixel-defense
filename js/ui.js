@@ -8,7 +8,7 @@
 
   var C = PD.CONFIG;
   var G = PD.Game;
-  var S = PD.Sprites;
+  var Art = PD.Art;
 
   var el = {};
   var actions = {};
@@ -24,9 +24,13 @@
     node.textContent = value;
   }
 
-  /* Vignette d'une tour : le sprite de sa tête, dessiné dans un petit canvas.
-     Une icône de plus à charger serait une requête réseau pour rien. */
-  function icon(type, cssSize) {
+  /* Vignette d'une tour : le bâtiment lui-même, peint en miniature dans un
+     petit canvas. Une icône de plus à charger serait une requête réseau pour
+     rien — et surtout, ce qu'on voit dans le panneau est exactement ce qu'on
+     verra se poser sur le plateau.
+     Le niveau montré est celui que le joueur obtiendra en payant : le niveau
+     de construction dans la feuille d'achat, le niveau suivant à l'améliorer. */
+  function icon(type, cssSize, level) {
     var dpr = Math.min(window.devicePixelRatio || 1, 3);
     var cv = document.createElement("canvas");
     cv.width = Math.round(cssSize * dpr);
@@ -35,9 +39,23 @@
     cv.style.height = cssSize + "px";
     cv.className = "icon";
     var g = cv.getContext("2d");
-    g.imageSmoothingEnabled = false;
-    var px = Math.max(1, Math.floor(cv.width / 12));
-    S.draw(g, "head_" + type, cv.width / 2, cv.height / 2, px);
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "high";
+
+    /* La tour est peinte pieds au sol : on la cadre par le bas, pas par le
+       centre. Et comme une tour de niveau 3 est deux fois plus haute qu'une
+       de niveau 1, l'échelle suit le niveau — sinon la vignette montrerait
+       une tourelle perdue dans le vide, puis un donjon décapité. */
+    var lv = level || 3;
+    var artHeight = [86, 134, 176][lv - 1];
+    var scale = (cv.height * 0.94) / artHeight;
+
+    Art.draw(g, "tower_" + type, {
+      x: cv.width / 2,
+      y: cv.height * 0.98,
+      w: 128 * scale,
+      frame: lv
+    });
     return cv;
   }
 
@@ -146,7 +164,7 @@
         card.dataset.cost = def.cost;
         card.setAttribute("aria-label", def.name + ", " + def.cost + " pièces d'or");
 
-        card.appendChild(icon(key, 34));
+        card.appendChild(icon(key, 34, 1));
 
         var name = document.createElement("span");
         name.className = "card-name";
@@ -216,7 +234,7 @@
 
       var body = document.createElement("div");
       body.className = "tower-body";
-      body.appendChild(icon(t.type, 40));
+      body.appendChild(icon(t.type, 40, t.level));
 
       var next = G.nextLevel(t);
       var statList = document.createElement("dl");

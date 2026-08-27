@@ -2,12 +2,12 @@
 
 Deux jeux pensés pour le téléphone : on y joue au doigt, d'une seule main, sans
 rien installer et sans réseau. Pas de moteur, pas de framework, pas de
-`npm install` — du HTML, du CSS, un `<canvas>`, et des dessins écrits dans le
-code.
+`npm install` — du HTML, du CSS, un `<canvas>`, et des dessins tracés par le
+code lui-même, courbe par courbe.
 
 | Jeu | Genre | Où |
 | --- | --- | --- |
-| **Pixel Defense** | Tower defense, 20 vagues | racine du dépôt, plus un portage [Godot](godot) |
+| **Pixel Defense** | Tower defense médiéval, 20 vagues | racine du dépôt, plus un portage [Godot](godot) |
 | **[Village](village)** | Bâtisseur isométrique, temps compressé | [`village/`](village) |
 
 Les deux partagent la même façon d'être faits : une simulation qui ne connaît
@@ -19,13 +19,21 @@ entières en ligne de commande pour vérifier les réglages.
 
 # Pixel Defense
 
-Un **tower defense en pixel art**. Il existe en **deux versions, mêmes règles et
-mêmes chiffres** :
+Un **tower defense médiéval**, dessiné à la main — au sens propre : chaque
+créature, chaque tour, chaque rocher est une suite de courbes tracées par le
+code, cernées d'un contour brun et remplies de dégradés. Aucune image n'est
+chargée depuis le réseau. Le parti pris graphique est celui des tower defense
+peints à la *Kingdom Rush* : silhouette lisible d'abord, cerne épais, couleurs
+franches, lumière toujours du même côté.
+
+> Le style est repris, pas les dessins : rien ici ne vient d'un jeu existant.
+
+Il existe en **deux versions, mêmes règles et mêmes chiffres** :
 
 | | Où | Pour quoi faire |
 | --- | --- | --- |
 | **Web** | racine du dépôt | Jouer en un lien, s'installer sur l'écran d'accueil, fonctionner hors ligne. Aucune dépendance, aucun build : du HTML, du CSS, un `<canvas>`. |
-| **Godot 4.4** | [`godot/`](godot) | Éditeur de scènes, export Android / iOS / bureau, et la suite du projet si le jeu grandit. |
+| **Godot 4.4** | [`godot/`](godot) | Éditeur de scènes, export Android / iOS / bureau, et la suite du projet si le jeu grandit. **Le portage a gardé l'ancien habillage pixel** : seule la version web est peinte. |
 
 Les deux partagent l'équilibrage au chiffre près : lancés sur le même robot de
 simulation, ils donnent le même résultat (vague 16 pour une défense posée au
@@ -51,8 +59,9 @@ hasard, 20/20 pour une défense pensée — voir plus bas).
 
 ## Les règles
 
-Vingt vagues arrivent par le haut de la carte et descendent le chemin jusqu'à
-votre base. Chaque ennemi qui l'atteint coûte des vies. À zéro, c'est fini.
+Vingt vagues sortent de la caverne, en haut de la carte, et descendent le
+chemin jusqu'à votre forteresse. Chaque ennemi qui l'atteint coûte des vies.
+À zéro, c'est fini.
 
 - **Appuyez sur une case d'herbe** pour bâtir, **sur une tour** pour l'améliorer
   (trois niveaux) ou la revendre à 60 % du prix payé.
@@ -64,20 +73,20 @@ votre base. Chaque ennemi qui l'atteint coûte des vies. À zéro, c'est fini.
 
 | Tour | Prix | Ce qu'elle fait |
 | --- | --- | --- |
-| **Tourelle** | 40 ◈ | Tir rapide sur une cible. Le premier rempart. |
-| **Cryo** | 60 ◈ | Peu de dégâts, mais ralentit de 45 % : double le temps passé sous le feu des autres. |
-| **Canon** | 80 ◈ | Lent, explosion de zone. La réponse aux nuées serrées. |
-| **Tesla** | 130 ◈ | Éclair instantané qui **ignore le blindage**. |
+| **Tour d'archers** | 40 ◈ | Flèches rapides, une cible à la fois. Le premier rempart. |
+| **Tour de givre** | 60 ◈ | Peu de dégâts, mais ralentit de 45 % : double le temps passé sous le feu des autres. |
+| **Bombarde naine** | 80 ◈ | Lente, explosion de zone. La réponse aux meutes serrées. |
+| **Tour de mages** | 130 ◈ | Trait arcanique instantané qui **traverse l'acier**. |
 
 Quatre ennemis, et chacun punit une défense mal pensée :
 
 | Ennemi | Particularité |
 | --- | --- |
-| **Rôdeur** | L'ennemi de base, sans surprise. |
-| **Essaim** | Rapide et nombreux — un canon, ou ils passent. |
-| **Blindé** | Encaisse 4 dégâts sur **chaque** coup : les tirs rapides ne le griffent pas. Tesla ou canon. |
-| **Drone** | **Vole en ligne droite** vers la base, ignore le chemin. Une défense massée le long du chemin ne le voit jamais passer. |
-| **Colosse** | Boss des vagues 10, 15 et 20. Cinq vies s'il passe. |
+| **Gobelin** | L'ennemi de base, sans surprise. |
+| **Loup** | Rapide et nombreux — une bombarde, ou la meute passe. |
+| **Orc cuirassé** | Encaisse 4 dégâts sur **chaque** coup : les flèches ne le griffent pas. Mages ou bombarde. |
+| **Harpie** | **Vole en ligne droite** vers la forteresse, ignore le chemin. Une défense massée le long du chemin ne la voit jamais passer. |
+| **Troll géant** | Boss des vagues 10, 15 et 20. Cinq vies s'il passe. |
 
 Clavier (sur ordinateur) : **Espace** pause · **N** vague suivante ·
 **1–4** construire sur la case choisie · **S** vitesse · **Échap** fermer.
@@ -86,13 +95,13 @@ Clavier (sur ordinateur) : **Espace** pause · **N** vague suivante ·
 
 ```
 index.html          Structure : bandeau, plateau, panneau, barre de commandes
-styles.css          Habillage sombre, mobile d'abord, zones tactiles ≥ 44 px
+styles.css          Habillage bois et parchemin, mobile d'abord, cibles ≥ 44 px
 js/config.js        Tout l'équilibrage : tours, ennemis, 20 vagues, économie
 js/map.js           Grille 9×16, chemin déduit des points de passage, décor
-js/sprites.js       Sprites en pixels (des chaînes de caractères), teintes
+js/art.js           Toutes les figures, tracées en courbes puis mises en cache
 js/storage.js       Record et préférences (localStorage, panne sans douleur)
 js/audio.js         Bruitages de synthèse — aucun fichier son
-js/render.js        Rendu canvas : terrain mis en cache, sprites, effets
+js/render.js        Rendu canvas : décor peint une fois, tri par profondeur, effets
 js/game.js          La simulation : vagues, déplacements, tirs, dégâts, or
 js/ui.js            Interface DOM : compteurs, panneaux, écrans
 js/main.js          Boucle, entrées, écrans, service worker
@@ -107,9 +116,11 @@ Trois partis pris qui expliquent le reste :
    pixels, aucune vitesse « par image » : le jeu se comporte pareil sur un
    téléphone à 60 Hz et sur un écran à 120 Hz, et le mode ×3 se résume à
    multiplier le temps écoulé.
-2. **Le rendu est seul à parler en pixels.** L'échelle du pixel d'art est
-   calculée à chaque redimensionnement pour tomber juste : des pixels carrés,
-   nets, sans lissage, quelle que soit la densité de l'écran.
+2. **Le rendu est seul à parler en pixels.** Le décor, qui ne bouge jamais,
+   est peint une fois dans un canvas hors écran ; les figures sont tracées une
+   fois puis recopiées à l'échelle. Tours et ennemis sont triés par leur
+   position verticale avant d'être dessinés — sans ce tri, un ennemi passerait
+   parfois derrière une tour qu'il devrait masquer.
 3. **L'interface est du DOM, pas du canvas.** Les boutons sont de vrais
    boutons : lisibles au lecteur d'écran, utilisables au clavier, et le doigt
    tombe sur des cibles d'au moins 44 px.
@@ -138,10 +149,26 @@ correct  {"issue":"gagné","vague":20,"vies":15,"score":47599,"tours":21}
 
 ### Changer les dessins
 
-Les sprites sont des tableaux de chaînes dans `js/sprites.js` : une lettre =
-un pixel, `.` = transparent, la palette est en haut du fichier. Un contrôle au
-chargement signale toute ligne de mauvaise longueur dans la console. Les
-icônes de l'application se régénèrent avec `node tools/make-icons.mjs`.
+Tout est dans [`js/art.js`](js/art.js). Chaque figure est une fonction qui
+trace des courbes dans une boîte de référence, avec trois outils partagés :
+`fs()` cerne puis remplit (le contour d'abord, sinon il n'y a pas de cerne),
+`shade()` donne le dégradé — clair en haut, sombre en bas, la même lumière
+pour tout le jeu —, et `limb()` trace un membre.
+
+Chaque figure porte sa boîte et son **point d'ancrage** : les pieds pour ce qui
+marche, la base pour ce qui est posé au sol, le centre pour ce qui vole. Le
+rendu place l'ancrage, jamais le coin — c'est ce qui fait qu'une tour de trois
+étages reste plantée sur sa case au lieu de flotter, et qu'une barre de vie se
+pose juste au-dessus d'une harpie comme d'un troll.
+
+Ce qu'on pose *sur* une figure — la bouche de la bombarde, l'orbe du mage —
+n'est pas repéré en fractions de case dans le rendu mais déclaré à côté du
+tracé, dans `mark()`. Les deux dérivaient dès qu'on retouchait la hauteur d'un
+mur.
+
+Un contrôle au chargement (`Art.validate()`) trace chaque figure une fois et
+signale dans la console celles qui manquent ou qui échouent. Les icônes de
+l'application se régénèrent avec `node tools/make-icons.mjs`.
 
 ## Version Godot
 

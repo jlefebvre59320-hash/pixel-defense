@@ -1,14 +1,14 @@
 {
   "name": "Pixel Defense",
   "short_name": "PixDefense",
-  "description": "Tower defense en pixel art : 20 vagues, 4 tours, une base à défendre. Jouable au doigt, hors ligne.",
+  "description": "Tower defense médiéval dessiné à la main : 20 vagues, 4 tours, une forteresse à défendre. Jouable au doigt, hors ligne.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0e1020",
-  "theme_color": "#0e1020",
+  "background_color": "#241a12",
+  "theme_color": "#2b1d14",
   "categories": ["games"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

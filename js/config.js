@@ -10,9 +10,9 @@
     /* Plateau au format téléphone : 9 cases de large, 16 de haut. */
     COLS: 9,
     ROWS: 16,
-    /* Résolution d'une case en « pixels d'art ». Toute la tuile, sprites
-       compris, est dessinée dans cette grille : c'est ce qui garde des pixels
-       carrés et nets à n'importe quelle taille d'écran. */
+    /* Unité de mesure interne d'une case, en seizièmes. Les dessins sont
+       peints en courbes, pas en pixels : cette valeur ne sert plus qu'à
+       exprimer commodément des fractions de case dans le rendu. */
     ART: 16,
 
     START_GOLD: 130,
@@ -44,12 +44,12 @@
   CONFIG.TOWERS = {
     gun: {
       key: "gun",
-      name: "Tourelle",
+      name: "Tour d'archers",
       tag: "Polyvalente",
-      desc: "Tir rapide, une cible. Le premier rempart, bon marché.",
+      desc: "Flèches rapides, une cible à la fois. Le premier rempart, et le moins cher.",
       kind: "single",
       cost: 40,
-      color: "#8a93a8",
+      color: "#dcbc86",
       shotSpeed: 11,
       levels: [
         { dmg: 7, range: 2.6, rate: 1.9, cost: 40 },
@@ -59,9 +59,9 @@
     },
     cannon: {
       key: "cannon",
-      name: "Canon",
+      name: "Bombarde naine",
       tag: "Explosif",
-      desc: "Lent, mais l'obus arrose tout un groupe. Idéal contre les nuées.",
+      desc: "Lente, mais le boulet arrose tout un groupe. La réponse aux meutes.",
       kind: "splash",
       cost: 80,
       color: "#f2a33c",
@@ -75,12 +75,12 @@
     },
     frost: {
       key: "frost",
-      name: "Cryo",
+      name: "Tour de givre",
       tag: "Contrôle",
-      desc: "Peu de dégâts, mais fige l'avancée : double le temps sous le feu.",
+      desc: "Peu de dégâts, mais fige l'avancée : double le temps passé sous le feu.",
       kind: "slow",
       cost: 60,
-      color: "#5be3e0",
+      color: "#7fdcea",
       shotSpeed: 9,
       slow: 0.45,
       slowFor: 1.6,
@@ -92,12 +92,12 @@
     },
     tesla: {
       key: "tesla",
-      name: "Tesla",
-      tag: "Perce-blindage",
-      desc: "Éclair instantané qui ignore le blindage. La réponse aux Blindés.",
+      name: "Tour de mages",
+      tag: "Perce-armure",
+      desc: "Trait arcanique instantané : la magie traverse l'acier. La réponse aux Orcs cuirassés.",
       kind: "beam",
       cost: 130,
-      color: "#a35bd6",
+      color: "#a55bd6",
       ignoreArmor: true,
       levels: [
         { dmg: 9, range: 2.7, rate: 3.2, cost: 130 },
@@ -115,14 +115,14 @@
      fly   : ignore le chemin, coupe en ligne droite vers la base
      leak  : vies perdues si l'ennemi atteint la base
      size  : rayon de collision, en cases
-     scale : taille du sprite, en multiples de la grille d'art (1 = normal)
+     scale : taille du dessin, en multiples de la case (1 = normal)
      --------------------------------------------------------------------- */
   CONFIG.ENEMIES = {
-    crawler: { key: "crawler", name: "Rôdeur", hp: 42, speed: 1.55, reward: 6, leak: 1, armor: 0, size: 0.32, scale: 1 },
-    swarm: { key: "swarm", name: "Essaim", hp: 20, speed: 2.25, reward: 3, leak: 1, armor: 0, size: 0.24, scale: 1 },
-    armored: { key: "armored", name: "Blindé", hp: 130, speed: 0.95, reward: 13, leak: 1, armor: 4, size: 0.36, scale: 1 },
-    flyer: { key: "flyer", name: "Drone", hp: 70, speed: 1.35, reward: 10, leak: 1, armor: 0, size: 0.32, scale: 1, fly: true },
-    boss: { key: "boss", name: "Colosse", hp: 1400, speed: 0.62, reward: 120, leak: 5, armor: 6, size: 0.62, scale: 2, boss: true }
+    crawler: { key: "crawler", name: "Gobelin", hp: 42, speed: 1.55, reward: 6, leak: 1, armor: 0, size: 0.32, scale: 1 },
+    swarm: { key: "swarm", name: "Loup", hp: 20, speed: 2.25, reward: 3, leak: 1, armor: 0, size: 0.24, scale: 0.95 },
+    armored: { key: "armored", name: "Orc cuirassé", hp: 130, speed: 0.95, reward: 13, leak: 1, armor: 4, size: 0.36, scale: 1.05 },
+    flyer: { key: "flyer", name: "Harpie", hp: 70, speed: 1.35, reward: 10, leak: 1, armor: 0, size: 0.32, scale: 1, fly: true },
+    boss: { key: "boss", name: "Troll géant", hp: 1400, speed: 0.62, reward: 120, leak: 5, armor: 6, size: 0.62, scale: 1.8, boss: true }
   };
 
   /* Les points de vie montent de 20 % par vague : la vague 20 est cinq fois

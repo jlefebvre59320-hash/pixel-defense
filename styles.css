@@ -1,21 +1,38 @@
 /* Pixel Defense — habillage.
    Mobile d'abord : une colonne qui remplit exactement la hauteur de l'écran,
    sans défilement, avec le plateau au milieu et les commandes à portée de
-   pouce en bas. Le jeu doit être jouable d'une seule main. */
+   pouce en bas. Le jeu doit être jouable d'une seule main.
+
+   L'habillage suit le plateau : bois, pierre, parchemin et or, avec le même
+   contour brun sombre que les dessins. Trois recettes reviennent partout —
+   un dégradé du clair vers le sombre, un liseré clair en haut posé à
+   l'intérieur, une ombre portée en bas. C'est ce qui donne du relief à des
+   rectangles, et ce qui fait qu'un bouton a l'air d'un objet plutôt que d'une
+   zone cliquable. */
 
 :root {
-  --bg: #0e1020;
-  --panel: #191c2e;
-  --panel-hi: #212540;
-  --line: #2b2f45;
-  --ink: #eef1f7;
-  --muted: #98a0bb;
-  --gold: #ffd84d;
-  --red: #e5484d;
-  --green: #57c96a;
-  --cyan: #5be3e0;
-  --radius: 10px;
-  --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --bg: #1d2a17;            /* sous-bois, derrière tout */
+  --wood: #7a4f2a;
+  --wood-dark: #4a2c14;
+  --wood-deep: #33200f;
+  --stone: #6f6a5e;
+  --parchment: #f3e5c4;
+  --parchment-dark: #d9c493;
+  --ink: #2b1d14;           /* le contour du jeu entier */
+  --cream: #f7efdd;
+  --muted: #c3ab84;
+  --gold: #f5c542;
+  --gold-dark: #b1810d;
+  --red: #d94a3f;
+  --green: #6fc24a;
+  --ice: #7fdcea;
+  --radius: 12px;
+  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --title: Georgia, "Times New Roman", serif;
+
+  /* Relief commun : lumière en haut, ombre en bas. */
+  --bevel: inset 0 2px 0 rgba(255, 240, 210, 0.22), inset 0 -3px 0 rgba(0, 0, 0, 0.30);
+  --drop: 0 3px 0 rgba(0, 0, 0, 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -25,7 +42,7 @@ html, body {
   padding: 0;
   height: 100%;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--cream);
   font-family: var(--font);
   font-size: 15px;
   /* Un jeu ne se sélectionne pas et ne se zoome pas par erreur au double-tap. */
@@ -33,6 +50,15 @@ html, body {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+}
+
+/* Fond de sous-bois : deux halos et une trame très douce, pour que les marges
+   autour du plateau ne soient pas un aplat mort. */
+body {
+  background-image:
+    radial-gradient(120% 60% at 50% -10%, #3c5a2a 0%, rgba(60, 90, 42, 0) 60%),
+    radial-gradient(90% 50% at 50% 110%, #16210f 0%, rgba(22, 33, 15, 0) 60%);
+  background-attachment: fixed;
 }
 
 #app {
@@ -62,35 +88,39 @@ html, body {
   justify-content: center;
   gap: 5px;
   padding: 7px 4px;
-  background: var(--panel);
-  border: 2px solid var(--line);
+  background: linear-gradient(180deg, var(--wood) 0%, var(--wood-dark) 100%);
+  border: 3px solid var(--ink);
   border-radius: var(--radius);
-  font-size: 13px;
+  box-shadow: var(--bevel), var(--drop);
+  font-family: var(--title);
+  font-size: 14px;
   font-weight: 700;
+  color: var(--cream);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
   white-space: nowrap;
   overflow: hidden;
 }
 .stat b { font-variant-numeric: tabular-nums; }
-.stat .ico { font-size: 12px; opacity: 0.9; }
-.stat.lives .ico { color: var(--red); }
+.stat .ico { font-size: 13px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
+.stat.lives .ico { color: #ff6b5e; }
 .stat.gold .ico { color: var(--gold); }
-.stat.wave .ico { color: var(--cyan); }
-.stat.score .ico { color: var(--muted); }
+.stat.wave .ico { color: var(--ice); }
+.stat.score .ico { color: var(--parchment-dark); }
 
 /* Peu de vies : le bandeau bat, on ne peut pas ne pas le voir. */
 .stat.danger {
-  border-color: var(--red);
+  border-color: #7d1f1a;
   animation: alert 1s ease-in-out infinite;
 }
 @keyframes alert {
-  0%, 100% { background: var(--panel); }
-  50% { background: #3a1c22; }
+  0%, 100% { background: linear-gradient(180deg, var(--wood) 0%, var(--wood-dark) 100%); }
+  50% { background: linear-gradient(180deg, #a33a2f 0%, #6d1e18 100%); }
 }
 
 /* --- Plateau -------------------------------------------------------------- */
 
-/* Le plateau est dimensionné par le rendu (taille exacte d'un nombre entier
-   de pixels d'art) ; la scène ne fait que le centrer dans la place restante. */
+/* Le plateau est dimensionné par le rendu ; la scène ne fait que le centrer
+   dans la place restante. */
 #stage {
   position: relative;
   flex: 1 1 auto;
@@ -106,9 +136,10 @@ html, body {
   /* content-box : la bordure ne rogne pas la surface de dessin, sinon le
      canvas serait redimensionné par le navigateur et perdrait sa netteté. */
   box-sizing: content-box;
-  border: 2px solid var(--line);
+  border: 3px solid var(--ink);
   border-radius: var(--radius);
-  background: #0b0d18;
+  background: #46702f;
+  box-shadow: 0 0 0 2px rgba(122, 79, 42, 0.9), 0 6px 18px rgba(0, 0, 0, 0.45);
   /* Le doigt joue, il ne fait pas défiler la page. */
   touch-action: none;
   cursor: crosshair;
@@ -120,9 +151,10 @@ html, body {
   flex: 0 0 auto;
   margin: 8px 10px 0;
   padding: 10px;
-  background: var(--panel);
-  border: 2px solid var(--line);
+  background: linear-gradient(180deg, #6b4523 0%, #3f2611 100%);
+  border: 3px solid var(--ink);
   border-radius: var(--radius);
+  box-shadow: var(--bevel), var(--drop);
 }
 .sheet.hidden { display: none; }
 
@@ -134,17 +166,19 @@ html, body {
   margin-bottom: 8px;
 }
 .sheet-title {
-  font-size: 12px;
+  font-family: var(--title);
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--parchment-dark);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 .sheet-title em { color: var(--gold); font-style: normal; }
 
 .chip {
-  background: transparent;
-  border: 2px solid var(--line);
+  background: linear-gradient(180deg, #5d3a1c 0%, #3a2210 100%);
+  border: 2px solid var(--ink);
   color: var(--muted);
   border-radius: 999px;
   padding: 6px 12px;
@@ -152,8 +186,10 @@ html, body {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   min-height: 32px;
+  box-shadow: var(--bevel);
 }
 
 .cards {
@@ -162,33 +198,66 @@ html, body {
   gap: 6px;
 }
 
+/* Une carte de construction est une pancarte de bois clouée : dégradé, cerne
+   sombre, et un fond de pierre derrière la vignette pour détacher la tour. */
 .card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 4px;
-  background: var(--panel-hi);
-  border: 2px solid var(--line);
+  padding: 6px 4px 8px;
+  background: linear-gradient(180deg, #8b5a30 0%, #58351a 100%);
+  border: 3px solid var(--ink);
   border-radius: var(--radius);
-  color: var(--ink);
+  box-shadow: var(--bevel), var(--drop);
+  color: var(--cream);
   font-family: inherit;
   cursor: pointer;
-  min-height: 96px;
+  min-height: 100px;
 }
-.card:active { transform: translateY(1px); }
-.card .icon { image-rendering: pixelated; }
-.card-name { font-size: 11px; font-weight: 700; }
-.card-cost { font-size: 12px; font-weight: 700; color: var(--gold); }
-.card-meta { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.card:active { transform: translateY(2px); box-shadow: var(--bevel); }
+
+.card .icon,
+.tower-body .icon {
+  border-radius: 8px;
+  background: radial-gradient(70% 70% at 50% 30%, #8fbf5c 0%, #52812f 100%);
+  box-shadow: inset 0 0 0 2px rgba(43, 29, 20, 0.55);
+}
+
+/* Deux lignes réservées : « Bombarde naine » passe à la ligne, les autres non,
+   et sans cette hauteur fixe une carte sur quatre serait plus haute que ses
+   voisines. */
+.card-name {
+  font-family: var(--title);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  min-height: 2.3em;
+  display: flex;
+  align-items: center;
+  text-align: center;
+}
+.card-cost {
+  font-family: var(--title);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.card-meta {
+  font-size: 9px;
+  color: var(--parchment-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 /* Trop cher : la carte reste lisible mais visiblement hors de portée. */
-.poor { opacity: 0.42; }
+.poor { opacity: 0.45; }
 .card.poor { border-style: dashed; }
 
 .sheet-hint {
   margin: 8px 2px 0;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.45;
   color: var(--muted);
   min-height: 2.4em;
@@ -199,7 +268,7 @@ html, body {
   align-items: center;
   gap: 12px;
 }
-.tower-body .icon { image-rendering: pixelated; flex: 0 0 auto; }
+.tower-body .icon { flex: 0 0 auto; }
 
 .stats {
   display: grid;
@@ -207,10 +276,10 @@ html, body {
   gap: 2px 10px;
   margin: 0;
   flex: 1 1 auto;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .stats dt { color: var(--muted); }
-.stats dd { margin: 0; font-weight: 700; }
+.stats dd { margin: 0; font-weight: 700; font-family: var(--title); }
 .stats dd em { color: var(--green); font-style: normal; }
 
 .sheet-actions {
@@ -229,31 +298,38 @@ html, body {
 }
 
 .btn {
-  min-height: 46px;
+  min-height: 48px;
   padding: 10px 14px;
   border-radius: var(--radius);
-  border: 2px solid var(--line);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 12.5px;
+  border: 3px solid var(--ink);
+  background: linear-gradient(180deg, #7a4f2a 0%, #4a2c14 100%);
+  box-shadow: var(--bevel), var(--drop);
+  color: var(--cream);
+  font-family: var(--title);
+  font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
   cursor: pointer;
   white-space: nowrap;
 }
-.btn:active { transform: translateY(1px); }
+/* Le bouton s'enfonce : l'ombre portée disparaît en même temps qu'il descend,
+   sinon il aurait l'air de glisser au lieu d'être pressé. */
+.btn:active { transform: translateY(2px); box-shadow: var(--bevel); }
+
 .btn.primary {
-  background: var(--gold);
-  border-color: #b9950f;
-  color: #12131c;
+  background: linear-gradient(180deg, #ffdc6b 0%, #d99b10 100%);
+  border-color: var(--ink);
+  color: #3a2405;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
 }
-.btn.ghost { background: var(--panel); }
+.btn.ghost { font-family: var(--font); font-size: 15px; }
 .btn.grow { flex: 1 1 auto; }
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: default;
   transform: none;
+  box-shadow: var(--bevel);
 }
 #btn-sound.off { color: var(--muted); text-decoration: line-through; }
 
@@ -266,32 +342,43 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(9, 10, 22, 0.86);
+  background: rgba(20, 12, 6, 0.80);
   backdrop-filter: blur(3px);
   z-index: 10;
 }
 .overlay.hidden { display: none; }
 
+/* Les écrans pleins sont des parchemins : fond clair, texte brun. C'est le
+   contraste avec le bois du reste de l'interface qui les fait lire comme des
+   messages, et non comme une couche de plus. */
 .overlay .panel {
   width: 100%;
-  max-width: 330px;
+  max-width: 340px;
   max-height: 100%;
   overflow-y: auto;
   padding: 20px 18px;
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-radius: 14px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #fbf3de 0%, rgba(251, 243, 222, 0) 70%),
+    linear-gradient(180deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+  border: 4px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 3px rgba(184, 149, 92, 0.55), 0 10px 26px rgba(0, 0, 0, 0.5);
+  color: #4a3520;
   text-align: center;
 }
 
 .overlay h1 {
   margin: 2px 0 10px;
-  font-size: 25px;
-  letter-spacing: 0.04em;
+  font-family: var(--title);
+  font-size: 27px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  /* Ombre dure : le titre a l'air d'un logo de jeu, pas d'un titre de page. */
-  text-shadow: 3px 3px 0 #12131c;
   color: var(--gold);
+  /* Cerne peint plutôt qu'ombre portée : le titre appartient au même monde
+     que les dessins du plateau. */
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 rgba(43, 29, 20, 0.45);
 }
 
 .overlay .kicker {
@@ -299,18 +386,19 @@ html, body {
   font-size: 10.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--cyan);
+  color: #8a6a3a;
+  font-weight: 700;
 }
 
 .overlay .line {
   margin: 0 0 10px;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.55;
-  color: var(--muted);
+  color: #503a22;
   text-align: left;
 }
 .overlay .line b { color: var(--ink); }
-.overlay .line em { color: var(--gold); font-style: normal; }
+.overlay .line em { color: #9a6b0d; font-style: normal; font-weight: 700; }
 
 .overlay .btn { width: 100%; margin-top: 8px; }
 
@@ -321,11 +409,14 @@ html, body {
   left: 50%;
   bottom: 14px;
   transform: translateX(-50%);
-  padding: 8px 14px;
-  background: rgba(9, 10, 22, 0.92);
-  border: 2px solid var(--line);
+  padding: 8px 16px;
+  background: linear-gradient(180deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+  border: 3px solid var(--ink);
   border-radius: 999px;
-  font-size: 12px;
+  box-shadow: var(--drop);
+  color: #4a3520;
+  font-family: var(--title);
+  font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
   z-index: 5;
@@ -336,8 +427,8 @@ html, body {
 
 @media (min-width: 560px) and (min-height: 700px) {
   #app { max-width: 560px; }
-  .card-name { font-size: 12px; }
-  .overlay .panel { max-width: 380px; }
+  .card-name { font-size: 12.5px; }
+  .overlay .panel { max-width: 390px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

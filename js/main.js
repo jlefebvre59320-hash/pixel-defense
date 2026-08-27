@@ -33,7 +33,7 @@
       kicker: "Tower defense de poche",
       title: "Pixel Defense",
       lines: [
-        "20 vagues, 4 tours, une base à défendre.",
+        "20 vagues, 4 tours, une forteresse à défendre.",
         bestLine()
       ],
       buttons: [
@@ -49,8 +49,8 @@
       title: "Comment jouer",
       lines: [
         "<b>Appuyez sur une case d'herbe</b> pour bâtir une tour, sur une tour pour l'améliorer ou la revendre (60 % du prix payé).",
-        "<b>Les ennemis suivent le chemin</b> jusqu'à votre base — sauf les <b>drones</b>, qui volent tout droit : ne massez pas tout le long du chemin.",
-        "<b>Les Blindés</b> encaissent 4 dégâts sur chaque coup : les tirs rapides ne leur font presque rien, la <b>Tesla</b> les traverse.",
+        "<b>Les ennemis suivent le chemin</b> jusqu'à votre forteresse — sauf les <b>harpies</b>, qui volent tout droit : ne massez pas tout le long du chemin.",
+        "<b>Les orcs cuirassés</b> encaissent 4 dégâts sur chaque coup : les flèches ne leur font presque rien, la <b>magie</b> traverse l'acier.",
         "<b>Appelez la vague en avance</b> : chaque seconde gagnée rapporte 3 ◈.",
         "Clavier : <b>Espace</b> pause · <b>N</b> vague suivante · <b>1-4</b> construire · <b>S</b> vitesse."
       ],
@@ -74,12 +74,12 @@
       "Score : <b>" + Math.floor(st.score).toLocaleString("fr-FR") + "</b>" + (st.newRecord ? " — <em>nouveau record !</em>" : ""),
       "Vague " + st.wave + "/" + st.waves + " · " + st.stats.kills + " ennemis abattus · " + st.stats.built + " tours bâties"
     ];
-    if (!won) lines.push("La base est tombée. Les drones passent par-dessus le chemin — pensez-y au prochain essai.");
-    else lines.push("Base intacte&nbsp;: " + st.lives + " vies sauvées, " + Math.floor(st.gold) + " ◈ non dépensés.");
+    if (!won) lines.push("La forteresse est tombée. Les harpies passent par-dessus le chemin — pensez-y au prochain essai.");
+    else lines.push("Forteresse intacte&nbsp;: " + st.lives + " vies sauvées, " + Math.floor(st.gold) + " ◈ non dépensés.");
 
     UI.showOverlay({
       kicker: won ? "Victoire" : "Défaite",
-      title: won ? "Base tenue !" : "Base détruite",
+      title: won ? "Forteresse tenue !" : "Forteresse tombée",
       lines: lines,
       buttons: [
         { label: "Rejouer", onClick: newGame },
@@ -230,8 +230,8 @@
   }
 
   function boot() {
-    var bad = PD.Sprites.validate();
-    if (bad.length) console.warn("Sprites incohérents :\n" + bad.join("\n"));
+    var bad = PD.Art.validate();
+    if (bad.length) console.warn("Figures incohérentes :\n" + bad.join("\n"));
 
     A.setEnabled(Store.get("sound") !== false);
     UI.init(handlers);
