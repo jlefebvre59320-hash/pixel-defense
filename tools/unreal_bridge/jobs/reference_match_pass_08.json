@@ -1,0 +1,26 @@
+{
+  "name": "reference_match_pass_08",
+  "description": "Reconstruit la base premium, ajoute le décor, puis nettoie la scène et ajuste lumière/caméra d'après les captures utilisateur.",
+  "steps": [
+    {
+      "name": "Contrôle Unreal",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true
+    },
+    {
+      "name": "Base graphique premium",
+      "script": "unreal/Content/Python/premium_graphics_pass_06.py",
+      "params": {}
+    },
+    {
+      "name": "Textures, ciel, herbe et effets",
+      "script": "unreal/Content/Python/environment_vfx_pass_07.py",
+      "params": {}
+    },
+    {
+      "name": "Nettoyage et correspondance au visuel",
+      "script": "unreal/Content/Python/reference_match_pass_08.py",
+      "params": {}
+    }
+  ]
+}
