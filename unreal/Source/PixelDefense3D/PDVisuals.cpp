@@ -297,7 +297,7 @@ void APDEnvironment::BuildTerrain()
         Water->SetMaterial(0,WaterMaterial);
 
     Path->SetStaticMesh(Cube);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ValleyV2")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ValleyV3")))
         Path->SetMaterial(0,Road);
     for(int32 Index=1;Index<UE_ARRAY_COUNT(Route);++Index)
     {

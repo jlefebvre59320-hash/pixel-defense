@@ -182,7 +182,7 @@ def make_water():
 def build_materials():
     unreal.EditorAssetLibrary.make_directory(MATERIAL_PATH)
     make_pbr("M_Ground_ValleyV2", "leafy_grass", (.42, .58, .30, 1), 7.5)
-    make_pbr("M_Path_ValleyV2", "grass_path_3", (.52, .38, .23, 1), 4.2)
+    make_pbr("M_Path_ValleyV3", "grass_path_2", (.92, .72, .46, 1), 4.8)
     make_water()
     make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
     make_unlit("M_Bird", (.012, .016, .022, 1), .35)
@@ -228,7 +228,7 @@ def build_level():
                 (0, 0, 3800), (-42, -28, -18))
     sun_component = actor_component(sun, unreal.DirectionalLightComponent)
     if sun_component:
-        safe_set(sun_component, "intensity", 2.6)
+        safe_set(sun_component, "intensity", 3.25)
         safe_set(sun_component, "light_color", unreal.Color(255, 236, 211))
         safe_set(sun_component, "cast_shadows", True)
         safe_set(sun_component, "mobility", unreal.ComponentMobility.MOVABLE)
@@ -246,7 +246,7 @@ def build_level():
     skylight = spawn(actor_subsystem, unreal.SkyLight, "PD_SkyLight")
     sky_component = actor_component(skylight, unreal.SkyLightComponent)
     if sky_component:
-        safe_set(sky_component, "intensity", .42)
+        safe_set(sky_component, "intensity", .62)
         safe_set(sky_component, "mobility", unreal.ComponentMobility.MOVABLE)
         hdri = find_asset("TextureCube", "kloofendal_48d_partly_cloudy_puresky")
         if hdri:
@@ -261,10 +261,10 @@ def build_level():
                 (0, 0, -100))
     fog_component = actor_component(fog, unreal.ExponentialHeightFogComponent)
     if fog_component:
-        safe_set(fog_component, "fog_density", .0032)
+        safe_set(fog_component, "fog_density", .0024)
         safe_set(fog_component, "fog_height_falloff", .30)
         safe_set(fog_component, "fog_inscattering_color",
-                 unreal.LinearColor(.30, .38, .46, 1))
+                 unreal.LinearColor(.42, .52, .62, 1))
         safe_set(fog_component, "start_distance", 700.0)
         safe_set(fog_component, "volumetric_fog", False)
 
@@ -290,7 +290,7 @@ def build_level():
         ("override_auto_exposure_max_brightness", True),
         ("auto_exposure_max_brightness", 1.0),
         ("override_auto_exposure_bias", True),
-        ("auto_exposure_bias", -0.85),
+        ("auto_exposure_bias", -0.15),
         ("override_color_saturation", True),
         ("color_saturation", unreal.Vector4(.92, .98, .88, 1.0)),
         ("override_color_contrast", True),
