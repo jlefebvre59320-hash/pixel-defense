@@ -284,17 +284,17 @@ void APDEnvironment::BuildTerrain()
     Terrain->SetStaticMesh(Cube);
     Terrain->SetRelativeLocation(FVector(0,250,-85));
     Terrain->SetRelativeScale3D(FVector(82,55,1.6f));
-    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_Forest")))
+    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_LivingValley")))
         Terrain->SetMaterial(0,Ground);
 
     Water->SetStaticMesh(Cube);
     Water->SetRelativeLocation(FVector(0,3000,-45));
     Water->SetRelativeScale3D(FVector(82,9,.65f));
-    if(UMaterialInterface* WaterMaterial=LoadMaterial(TEXT("M_Water_River")))
+    if(UMaterialInterface* WaterMaterial=LoadMaterial(TEXT("M_Water_LivingValley")))
         Water->SetMaterial(0,WaterMaterial);
 
     Path->SetStaticMesh(Cube);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_Dirt")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_LivingValley")))
         Path->SetMaterial(0,Road);
     for(int32 Index=1;Index<UE_ARRAY_COUNT(Route);++Index)
     {
