@@ -235,6 +235,7 @@ APDEnvironment::APDEnvironment()
     PrimaryActorTick.bCanEverTick=true;
     Root=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
     RootComponent=Root;
+    Root->SetMobility(EComponentMobility::Static);
 
     Terrain=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Terrain"));
     Terrain->SetupAttachment(Root); Terrain->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -272,7 +273,11 @@ void APDEnvironment::BeginPlay()
     BuildTerrain(); BuildForest(); BuildVillage(); BuildAmbientFX();
     TActorIterator<ADirectionalLight> SunIt(GetWorld());
     if(SunIt)
+    {
         Sun=*SunIt;
+        if(USceneComponent* SunRoot=Sun->GetRootComponent())
+            SunRoot->SetMobility(EComponentMobility::Movable);
+    }
 }
 
 void APDEnvironment::BuildTerrain()
