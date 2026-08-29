@@ -10,6 +10,7 @@ EDITOR_CMD="$ENGINE_ROOT/Engine/Binaries/Mac/UnrealEditor-Cmd"
 SETUP_PY="$REPO_ROOT/unreal/Content/Python/ultimate_setup.py"
 LOG_DIR="$REPO_ROOT/unreal/Saved/Logs"
 LOG_FILE="$LOG_DIR/ultimate_setup.log"
+MARKER_FILE="$REPO_ROOT/unreal/Saved/ultimate_setup_complete.json"
 
 if pgrep -f "/UnrealEditor([[:space:]]|$)" >/dev/null 2>&1; then
   echo "Ferme complètement Unreal Editor avant cette installation."
@@ -34,11 +35,22 @@ echo "[2/4] Compilation PixelDefense3D..."
 
 echo "[3/4] Import, matériaux PBR et création de KingdomValley..."
 mkdir -p "$LOG_DIR"
-"$EDITOR_CMD" "$UPROJECT"   -ExecutePythonScript="$SETUP_PY"   -unattended -nop4 -nosplash -NoSound 2>&1 | tee "$LOG_FILE"
+rm -f "$MARKER_FILE"
+set +e
+"$EDITOR_CMD" "$UPROJECT" \
+  -ExecutePythonScript="$SETUP_PY" \
+  -unattended -nop4 -nosplash -NoSound \
+  -stdout -FullStdOutLogOutput 2>&1 | tee "$LOG_FILE"
+EDITOR_STATUS=${PIPESTATUS[0]}
+set -e
 
-if ! grep -q "PIXEL_DEFENSE_ULTIMATE_SETUP_COMPLETE" "$LOG_FILE"; then
+if [ "$EDITOR_STATUS" -ne 0 ] || [ ! -f "$MARKER_FILE" ]; then
+  echo
   echo "L'installation Unreal ne s'est pas terminée correctement."
-  echo "Journal: $LOG_FILE"
+  echo "Code UnrealEditor-Cmd: $EDITOR_STATUS"
+  echo "Dernières erreurs utiles:"
+  grep -Ei "error|exception|traceback|fatal|ensure condition|PIXEL_DEFENSE_SETUP_STEP" "$LOG_FILE" | tail -n 80 || true
+  echo "Journal complet: $LOG_FILE"
   exit 1
 fi
 
