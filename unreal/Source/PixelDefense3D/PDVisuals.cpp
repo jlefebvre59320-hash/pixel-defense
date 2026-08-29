@@ -270,11 +270,9 @@ void APDEnvironment::BeginPlay()
 {
     Super::BeginPlay();
     BuildTerrain(); BuildForest(); BuildVillage(); BuildAmbientFX();
-    for(TActorIterator<ADirectionalLight> It(GetWorld());It;++It)
-    {
-        Sun=*It;
-        break;
-    }
+    TActorIterator<ADirectionalLight> SunIt(GetWorld());
+    if(SunIt)
+        Sun=*SunIt;
 }
 
 void APDEnvironment::BuildTerrain()
