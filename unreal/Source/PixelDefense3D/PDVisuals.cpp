@@ -7,6 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/DirectionalLight.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInterface.h"
 #include "Modules/ModuleManager.h"
@@ -269,6 +270,14 @@ void APDEnvironment::BeginPlay()
 {
     Super::BeginPlay();
     BuildTerrain(); BuildForest(); BuildVillage(); BuildAmbientFX();
+    for(TActorIterator<ADirectionalLight> It(GetWorld());It;++It)
+    {
+        if(It->GetActorLabel().Contains(TEXT("PD_Sun")))
+        {
+            Sun=*It;
+            break;
+        }
+    }
 }
 
 void APDEnvironment::BuildTerrain()
@@ -494,6 +503,12 @@ void APDEnvironment::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Time=GetWorld()->GetTimeSeconds();
+    if(Sun.IsValid())
+    {
+        FRotator Rotation=Sun->GetActorRotation();
+        Rotation.Yaw=FMath::Fmod(Rotation.Yaw+DeltaSeconds*.18f,360.f);
+        Sun->SetActorRotation(Rotation);
+    }
     for(int32 Index=0;Index<FireflyOrigins.Num();++Index)
     {
         const float Phase=FireflyPhases[Index];
