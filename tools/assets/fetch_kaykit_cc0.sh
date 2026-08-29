@@ -4,15 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DEST_ROOT="$REPO_ROOT/unreal/ExternalAssets/KayKit"
+LOCAL_BIN="${HOME}/.local/bin"
 
 if ! command -v git >/dev/null 2>&1; then
   echo "Erreur: git est requis."
   exit 1
 fi
+
+export PATH="$LOCAL_BIN:$PATH"
 if ! git lfs version >/dev/null 2>&1; then
-  echo "Erreur: Git LFS est requis pour les modèles KayKit."
-  echo "Sur macOS: brew install git-lfs && git lfs install"
-  exit 1
+  echo "Git LFS absent: installation locale automatique (sans Homebrew)..."
+  bash "$SCRIPT_DIR/install_git_lfs_macos.sh"
+  export PATH="$LOCAL_BIN:$PATH"
 fi
 
 mkdir -p "$DEST_ROOT"
@@ -40,10 +43,10 @@ sync_pack() {
   git -C "$target" lfs pull
 }
 
-sync_pack "MedievalHexagon"   "https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git"
-sync_pack "Adventurers"   "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git"
-sync_pack "Skeletons"   "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git"
-sync_pack "DungeonRemastered"   "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0.git"
+sync_pack "MedievalHexagon" "https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git"
+sync_pack "Adventurers" "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git"
+sync_pack "Skeletons" "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git"
+sync_pack "DungeonRemastered" "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0.git"
 
 echo
 echo "Textures et ciel Poly Haven CC0 (1K mobile)..."
@@ -51,5 +54,3 @@ python3 "$SCRIPT_DIR/fetch_polyhaven_cc0.py"
 
 echo
 echo "Packs prêts dans: $DEST_ROOT"
-echo "Étape suivante:"
-echo "bash tools/unreal/ultimate_setup_macos.sh"
