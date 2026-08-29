@@ -29,6 +29,8 @@ public:
                    int32 InArmor, int32 InReward, int32 InLeak);
     void ApplyHit(float Amount, bool bIgnoreArmor, float SlowFactor=1.f, float SlowDuration=0.f);
     float GetProgress() const { return Progress; }
+    int32 GetReward() const { return Reward; }
+    int32 GetLeak() const { return Leak; }
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
     UPROPERTY(BlueprintReadOnly) float HP=20.f;
