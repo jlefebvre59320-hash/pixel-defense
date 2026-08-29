@@ -1,4 +1,5 @@
 #include "PDGame.h"
+#include "PDVisuals.h"
 
 #include "Camera/CameraActor.h"
 #include "Animation/AnimSequence.h"
@@ -12,6 +13,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInterface.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -20,6 +22,9 @@ namespace
 template <typename AssetType>
 AssetType* FindKayKitAsset(const FName RequestedName)
 {
+    static TMap<FName,TWeakObjectPtr<AssetType>> Cache;
+    if(const TWeakObjectPtr<AssetType>* Cached=Cache.Find(RequestedName))
+        if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
     TArray<FAssetData> Assets;
@@ -29,29 +34,44 @@ AssetType* FindKayKitAsset(const FName RequestedName)
     for(const FAssetData& Asset : Assets)
     {
         if(Asset.AssetName == RequestedName && Asset.AssetClassPath == WantedClass)
-            return Cast<AssetType>(Asset.GetAsset());
+        {
+            AssetType* Loaded=Cast<AssetType>(Asset.GetAsset());
+            if(Loaded) Cache.Add(RequestedName,Loaded);
+            return Loaded;
+        }
     }
     return nullptr;
 }
 
-UAnimSequence* FindWalkingAnimation(USkeletalMesh* Mesh)
+UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
+                                       const TCHAR* Alternate=nullptr)
 {
     if(!Mesh || !Mesh->GetSkeleton()) return nullptr;
+    const FString CacheKey=Mesh->GetPathName()+TEXT("|")+Token+
+        (Alternate?FString(Alternate):FString());
+    static TMap<FString,TWeakObjectPtr<UAnimSequence>> Cache;
+    if(const TWeakObjectPtr<UAnimSequence>* Cached=Cache.Find(CacheKey))
+        if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
     TArray<FAssetData> Assets;
     Module.Get().GetAssetsByPath(
         FName(TEXT("/Game/ThirdParty/KayKit")), Assets, true, false);
+    const FString Wanted(Token);
+    const FString Other=Alternate?FString(Alternate):FString();
     for(const FAssetData& Asset : Assets)
     {
         if(Asset.AssetClassPath != UAnimSequence::StaticClass()->GetClassPathName())
             continue;
-        const FString Name = Asset.AssetName.ToString().ToLower();
-        if(!Name.Contains(TEXT("walk")) && !Name.Contains(TEXT("run")))
+        const FString Name=Asset.AssetName.ToString().ToLower();
+        if(!Name.Contains(Wanted) && (Other.IsEmpty()||!Name.Contains(Other)))
             continue;
-        UAnimSequence* Animation = Cast<UAnimSequence>(Asset.GetAsset());
-        if(Animation && Animation->GetSkeleton() == Mesh->GetSkeleton())
+        UAnimSequence* Animation=Cast<UAnimSequence>(Asset.GetAsset());
+        if(Animation && Animation->GetSkeleton()==Mesh->GetSkeleton())
+        {
+            Cache.Add(CacheKey,Animation);
             return Animation;
+        }
     }
     return nullptr;
 }
@@ -69,6 +89,29 @@ APDEnemy::APDEnemy()
     Visual->SetCollisionProfileName("BlockAllDynamic");
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Shape(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if(Shape.Succeeded()) Visual->SetStaticMesh(Shape.Object);
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(
+        TEXT("/Engine/BasicShapes/Cube.Cube"));
+    HealthBarBack=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HealthBarBack"));
+    HealthBarBack->SetupAttachment(Visual);
+    HealthBarBack->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    HealthBarFill=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HealthBarFill"));
+    HealthBarFill->SetupAttachment(Visual);
+    HealthBarFill->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    if(Cube.Succeeded())
+    {
+        HealthBarBack->SetStaticMesh(Cube.Object);
+        HealthBarFill->SetStaticMesh(Cube.Object);
+    }
+    HealthBarBack->SetRelativeLocation(FVector(0,0,215));
+    HealthBarBack->SetRelativeScale3D(FVector(1.25f,.13f,.075f));
+    HealthBarFill->SetRelativeLocation(FVector(0,-2,218));
+    HealthBarFill->SetRelativeScale3D(FVector(1.18f,.15f,.085f));
+    if(UMaterialInterface* Back=LoadObject<UMaterialInterface>(nullptr,
+        TEXT("/Game/Art/Production/Materials/M_Health_Back.M_Health_Back")))
+        HealthBarBack->SetMaterial(0,Back);
+    if(UMaterialInterface* Fill=LoadObject<UMaterialInterface>(nullptr,
+        TEXT("/Game/Art/Production/Materials/M_Health_Fill.M_Health_Fill")))
+        HealthBarFill->SetMaterial(0,Fill);
     SetActorScale3D(FVector(.55f,.55f,.8f));
 }
 
@@ -89,7 +132,8 @@ void APDEnemy::UseProductionCharacter(FName MeshName)
         CharacterVisual->SetRelativeRotation(FRotator(0.f,-90.f,0.f));
         CharacterVisual->SetVisibility(true);
         Visual->SetVisibility(false,false);
-        if(UAnimSequence* Walking=FindWalkingAnimation(Mesh))
+        if(UAnimSequence* Walking=FindCharacterAnimation(
+            Mesh,TEXT("walk"),TEXT("run")))
         {
             CharacterVisual->SetAnimationMode(EAnimationMode::AnimationSingleNode);
             CharacterVisual->SetAnimation(Walking);
@@ -101,13 +145,16 @@ void APDEnemy::UseProductionCharacter(FName MeshName)
 void APDEnemy::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    if(Path.Num()<2 || PathIndex>=Path.Num()) return;
+    if(bDying || Path.Num()<2 || PathIndex>=Path.Num()) return;
     if(GetWorld()->GetTimeSeconds()>=SlowUntil) SlowMultiplier=1.f;
     float Left=Speed*SlowMultiplier*DeltaSeconds;
     while(Left>0.f && PathIndex<Path.Num())
     {
         const FVector Here=GetActorLocation();
         const FVector Target=Path[PathIndex];
+        FVector Facing=Target-Here; Facing.Z=0.f;
+        if(!Facing.IsNearlyZero())
+            SetActorRotation(FRotator(0,Facing.Rotation().Yaw,0));
         const float Distance=FVector::Distance(Here,Target);
         if(Distance<=Left)
         {
@@ -120,6 +167,9 @@ void APDEnemy::Tick(float DeltaSeconds)
         }
     }
     Progress=FMath::Clamp(Travelled/FMath::Max(1.f,TotalDistance),0.f,1.f);
+    const float Health=FMath::Clamp(HP/FMath::Max(1.f,MaxHP),0.f,1.f);
+    HealthBarFill->SetRelativeScale3D(FVector(1.18f*Health,.15f,.085f));
+    HealthBarFill->SetRelativeLocation(FVector(-59.f*(1.f-Health),-2.f,218.f));
     if(PathIndex>=Path.Num())
     {
         if(APDGameMode* GM=GetWorld()->GetAuthGameMode<APDGameMode>()) GM->EnemyLeaked(this);
@@ -129,6 +179,7 @@ void APDEnemy::Tick(float DeltaSeconds)
 
 void APDEnemy::ApplyHit(float Amount,bool bIgnoreArmor,float InSlowFactor,float SlowDuration)
 {
+    if(bDying) return;
     HP-=bIgnoreArmor?Amount:FMath::Max(1.f,Amount-Armor);
     if(InSlowFactor<1.f)
     {
@@ -137,8 +188,19 @@ void APDEnemy::ApplyHit(float Amount,bool bIgnoreArmor,float InSlowFactor,float 
     }
     if(HP<=0.f)
     {
-        if(APDGameMode* GM=GetWorld()->GetAuthGameMode<APDGameMode>()) GM->EnemyKilled(this);
-        Destroy();
+        bDying=true; HP=0.f;
+        if(APDGameMode* GM=GetWorld()->GetAuthGameMode<APDGameMode>())
+            GM->EnemyKilled(this);
+        SetActorEnableCollision(false);
+        HealthBarBack->SetVisibility(false);
+        HealthBarFill->SetVisibility(false);
+        if(USkeletalMesh* Mesh=CharacterVisual->GetSkeletalMeshAsset())
+            if(UAnimSequence* Death=FindCharacterAnimation(Mesh,TEXT("death"),TEXT("die")))
+            {
+                CharacterVisual->SetAnimation(Death);
+                CharacterVisual->Play(false);
+            }
+        SetLifeSpan(.9f);
     }
 }
 
@@ -147,6 +209,13 @@ APDTower::APDTower()
     PrimaryActorTick.bCanEverTick=true;
     Visual=CreateDefaultSubobject<UStaticMeshComponent>("Visual");
     RootComponent=Visual;
+    Defender=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Defender"));
+    Defender->SetupAttachment(Visual);
+    Defender->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Defender->SetVisibility(false);
+    Defender->SetRelativeLocation(FVector(0,0,235));
+    Defender->SetRelativeRotation(FRotator(0,-90,0));
+    Defender->SetRelativeScale3D(FVector(.58f));
     Visual->SetCollisionProfileName("BlockAllDynamic");
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Shape(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     if(Shape.Succeeded()) Visual->SetStaticMesh(Shape.Object);
@@ -162,6 +231,37 @@ void APDTower::UseProductionMesh(FName MeshName)
     }
 }
 
+void APDTower::UseProductionDefender(FName MeshName)
+{
+    if(USkeletalMesh* Mesh=FindKayKitAsset<USkeletalMesh>(MeshName))
+    {
+        Defender->SetSkeletalMeshAsset(Mesh);
+        Defender->SetVisibility(true);
+        IdleAnimation=FindCharacterAnimation(Mesh,TEXT("idle"));
+        AttackAnimation=FindCharacterAnimation(Mesh,TEXT("attack"),TEXT("shoot"));
+        RestoreIdleAnimation();
+    }
+}
+
+void APDTower::RestoreIdleAnimation()
+{
+    AttackAnimationRemaining=0.f;
+    if(!IdleAnimation) return;
+    Defender->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+    Defender->SetAnimation(IdleAnimation);
+    Defender->Play(true);
+}
+
+void APDTower::PlayAttackAnimation()
+{
+    if(!AttackAnimation) return;
+    Defender->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+    Defender->SetAnimation(AttackAnimation);
+    Defender->Play(false);
+    AttackAnimationRemaining=FMath::Clamp(
+        AttackAnimation->GetPlayLength(),.25f,1.2f);
+}
+
 void APDTower::Configure(EPDTowerKind InKind)
 {
     Kind=InKind; SplashRadius=0.f; SlowFactor=1.f; SlowDuration=0.f; bIgnoreArmor=false;
@@ -169,39 +269,50 @@ void APDTower::Configure(EPDTowerKind InKind)
     {
         case EPDTowerKind::Archer:
             Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f;
-            UseProductionMesh(FName(TEXT("building_archeryrange_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_archeryrange_green")));
+            UseProductionDefender(FName(TEXT("RogueHooded"))); break;
         case EPDTowerKind::Frost:
             Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f;
-            UseProductionMesh(FName(TEXT("building_tower_B_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_B_blue")));
+            UseProductionDefender(FName(TEXT("Mage"))); break;
         case EPDTowerKind::Bombard:
             Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f;
-            UseProductionMesh(FName(TEXT("building_tower_catapult_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_catapult_red")));
+            UseProductionDefender(FName(TEXT("Barbarian"))); break;
         case EPDTowerKind::Mage:
             Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true;
-            UseProductionMesh(FName(TEXT("building_tower_A_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_A_yellow")));
+            UseProductionDefender(FName(TEXT("Knight"))); break;
     }
 }
 
 void APDTower::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    if(AttackAnimationRemaining>0.f)
+    {
+        AttackAnimationRemaining-=DeltaSeconds;
+        if(AttackAnimationRemaining<=0.f) RestoreIdleAnimation();
+    }
     Cooldown-=DeltaSeconds;
     if(Cooldown>0.f) return;
     APDEnemy* Target=nullptr; float Best=-1.f;
     for(TActorIterator<APDEnemy> It(GetWorld());It;++It)
     {
+        if(!It->IsTargetable()) continue;
         const float D=FVector::Dist2D(GetActorLocation(),It->GetActorLocation());
         if(D<=Range && It->GetProgress()>Best){Target=*It;Best=It->GetProgress();}
     }
     if(!Target) return;
-    const FVector HitPoint=Target->GetActorLocation();
-    if(SplashRadius>0.f)
+    const FVector Muzzle=GetActorLocation()+FVector(0,0,230);
+    APDProjectile* Projectile=GetWorld()->SpawnActor<APDProjectile>(
+        Muzzle,FRotator::ZeroRotator);
+    if(Projectile)
     {
-        for(TActorIterator<APDEnemy> It(GetWorld());It;++It)
-            if(FVector::Dist2D(HitPoint,It->GetActorLocation())<=SplashRadius)
-                It->ApplyHit(Damage,bIgnoreArmor);
+        Projectile->Init(Target,Kind,Damage,bIgnoreArmor,SplashRadius,
+                         SlowFactor,SlowDuration);
+        PlayAttackAnimation();
     }
-    else Target->ApplyHit(Damage,bIgnoreArmor,SlowFactor,SlowDuration);
     Cooldown=1.f/ShotsPerSecond;
 }
 
@@ -231,6 +342,7 @@ void APDGameMode::BeginPlay()
         FVector(-3200,-1300,90),FVector(-2300,-450,90),FVector(-1200,-850,90),
         FVector(-250,-100,90),FVector(900,-650,90),FVector(1900,100,90),FVector(3100,850,90)
     };
+    GetWorld()->SpawnActor<APDEnvironment>();
     CreateBuildPads(); CreateCamera();
 }
 

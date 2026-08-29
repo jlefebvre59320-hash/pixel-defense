@@ -9,6 +9,7 @@
 
 class UStaticMeshComponent;
 class USkeletalMeshComponent;
+class UAnimSequence;
 
 UENUM(BlueprintType)
 enum class EPDTowerKind : uint8
@@ -31,11 +32,14 @@ public:
     void ApplyHit(float Amount, bool bIgnoreArmor, float SlowFactor=1.f, float SlowDuration=0.f);
     void UseProductionCharacter(FName MeshName);
     float GetProgress() const { return Progress; }
+    bool IsTargetable() const { return !bDying && HP>0.f; }
     int32 GetReward() const { return Reward; }
     int32 GetLeak() const { return Leak; }
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* CharacterVisual;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* HealthBarBack;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* HealthBarFill;
     UPROPERTY(BlueprintReadOnly) float HP=20.f;
     UPROPERTY(BlueprintReadOnly) float MaxHP=20.f;
 
@@ -51,6 +55,7 @@ private:
     float TotalDistance=1.f;
     float SlowMultiplier=1.f;
     float SlowUntil=0.f;
+    bool bDying=false;
 };
 
 UCLASS()
@@ -62,8 +67,10 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     void Configure(EPDTowerKind InKind);
     void UseProductionMesh(FName MeshName);
+    void UseProductionDefender(FName MeshName);
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* Defender;
     UPROPERTY(BlueprintReadOnly) EPDTowerKind Kind=EPDTowerKind::Archer;
 
 private:
@@ -75,6 +82,11 @@ private:
     float SlowDuration=0.f;
     bool bIgnoreArmor=false;
     float Cooldown=0.f;
+    float AttackAnimationRemaining=0.f;
+    UPROPERTY() UAnimSequence* IdleAnimation=nullptr;
+    UPROPERTY() UAnimSequence* AttackAnimation=nullptr;
+    void PlayAttackAnimation();
+    void RestoreIdleAnimation();
 };
 
 UCLASS()
