@@ -169,16 +169,16 @@ void APDTower::Configure(EPDTowerKind InKind)
     {
         case EPDTowerKind::Archer:
             Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f;
-            UseProductionMesh("building_archeryrange_blue"); break;
+            UseProductionMesh(FName(TEXT("building_archeryrange_blue"))); break;
         case EPDTowerKind::Frost:
             Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f;
-            UseProductionMesh("building_tower_B_blue"); break;
+            UseProductionMesh(FName(TEXT("building_tower_B_blue"))); break;
         case EPDTowerKind::Bombard:
             Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f;
-            UseProductionMesh("building_tower_catapult_blue"); break;
+            UseProductionMesh(FName(TEXT("building_tower_catapult_blue"))); break;
         case EPDTowerKind::Mage:
             Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true;
-            UseProductionMesh("building_tower_A_blue"); break;
+            UseProductionMesh(FName(TEXT("building_tower_A_blue"))); break;
     }
 }
 
@@ -292,9 +292,9 @@ void APDGameMode::SpawnEnemy()
         const float BaseHP=bBoss?220.f:(bArmored?55.f:(bFast?16.f:25.f));
         const float MoveSpeed=bBoss?120.f:(bFast?410.f:245.f);
         E->InitEnemy(EnemyPath,BaseHP*Ramp,MoveSpeed,bArmored?4:0,bBoss?45:(bArmored?10:5),bBoss?5:1);
-        const FName Character = bBoss ? FName("Skeleton_Warrior")
-            : (bFast ? FName("Skeleton_Rogue")
-            : (bArmored ? FName("Skeleton_Mage") : FName("Skeleton_Minion")));
+        const FName Character = bBoss ? FName(TEXT("Skeleton_Warrior"))
+            : (bFast ? FName(TEXT("Skeleton_Rogue"))
+            : (bArmored ? FName(TEXT("Skeleton_Mage")) : FName(TEXT("Skeleton_Minion"))));
         E->UseProductionCharacter(Character);
         if(bBoss) E->SetActorScale3D(FVector(1.4f));
         ++AliveEnemies;
