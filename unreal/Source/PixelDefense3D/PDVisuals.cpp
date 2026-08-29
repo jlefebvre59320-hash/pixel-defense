@@ -272,11 +272,8 @@ void APDEnvironment::BeginPlay()
     BuildTerrain(); BuildForest(); BuildVillage(); BuildAmbientFX();
     for(TActorIterator<ADirectionalLight> It(GetWorld());It;++It)
     {
-        if(It->GetActorLabel().Contains(TEXT("PD_Sun")))
-        {
-            Sun=*It;
-            break;
-        }
+        Sun=*It;
+        break;
     }
 }
 
