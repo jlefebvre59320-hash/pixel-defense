@@ -17,6 +17,9 @@ namespace
 template <typename AssetType>
 AssetType* FindProductionAsset(const FName RequestedName)
 {
+    static TMap<FName,TWeakObjectPtr<AssetType>> Cache;
+    if(const TWeakObjectPtr<AssetType>* Cached=Cache.Find(RequestedName))
+        if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
     TArray<FAssetData> Assets;
@@ -26,7 +29,11 @@ AssetType* FindProductionAsset(const FName RequestedName)
     for(const FAssetData& Asset : Assets)
     {
         if(Asset.AssetName == RequestedName && Asset.AssetClassPath == WantedClass)
-            return Cast<AssetType>(Asset.GetAsset());
+        {
+            AssetType* Loaded=Cast<AssetType>(Asset.GetAsset());
+            if(Loaded) Cache.Add(RequestedName,Loaded);
+            return Loaded;
+        }
     }
     return nullptr;
 }
