@@ -287,17 +287,17 @@ void APDEnvironment::BuildTerrain()
     Terrain->SetStaticMesh(Cube);
     Terrain->SetRelativeLocation(FVector(0,250,-85));
     Terrain->SetRelativeScale3D(FVector(82,55,1.6f));
-    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_LivingValley")))
+    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_ValleyV2")))
         Terrain->SetMaterial(0,Ground);
 
     Water->SetStaticMesh(Cube);
-    Water->SetRelativeLocation(FVector(0,3000,-45));
-    Water->SetRelativeScale3D(FVector(82,9,.65f));
-    if(UMaterialInterface* WaterMaterial=LoadMaterial(TEXT("M_Water_LivingValley")))
+    Water->SetRelativeLocation(FVector(0,0,-55));
+    Water->SetRelativeScale3D(FVector(100,75,.60f));
+    if(UMaterialInterface* WaterMaterial=LoadMaterial(TEXT("M_Water_ValleyV2")))
         Water->SetMaterial(0,WaterMaterial);
 
     Path->SetStaticMesh(Cube);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_LivingValley")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ValleyV2")))
         Path->SetMaterial(0,Road);
     for(int32 Index=1;Index<UE_ARRAY_COUNT(Route);++Index)
     {
@@ -307,7 +307,7 @@ void APDEnvironment::BuildTerrain()
         const float Length=FVector2D(Delta.X,Delta.Y).Size()+90.f;
         const float Yaw=FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X));
         Path->AddInstance(FTransform(FRotator(0,Yaw,0),Mid,
-            FVector(Length/100.f,3.55f,.10f)));
+            FVector(Length/100.f,3.05f,.08f)));
     }
 }
 
@@ -333,12 +333,12 @@ void APDEnvironment::BuildForest()
     FRandomStream Random(20260829);
 
     // Dense framing only at the valley edges; the playable center stays readable.
-    for(int32 Attempt=0;Attempt<150;++Attempt)
+    for(int32 Attempt=0;Attempt<260;++Attempt)
     {
         FVector P(Random.FRandRange(-4050,4050),Random.FRandRange(-2380,2380),14);
         const bool bEdge=FMath::Abs(P.X)>2850.f||FMath::Abs(P.Y)>1700.f;
         const bool bGrove=(P.X<-1750.f&&P.Y>650.f)||(P.X>1550.f&&P.Y>1050.f);
-        if((!bEdge&&!bGrove)||!IsClearOfRoute(P,760.f)||Random.FRand()>.58f) continue;
+        if((!bEdge&&!bGrove)||!IsClearOfRoute(P,760.f)||Random.FRand()>.46f) continue;
         const float Choice=Random.FRand();
         UHierarchicalInstancedStaticMeshComponent* Layer =
             Choice<.34f?TreesA:(Choice<.70f?TreesB:TreesC);
@@ -354,20 +354,20 @@ void APDEnvironment::BuildForest()
     // Low vegetation breaks the empty ground without rebuilding a wall of pines.
     if(Shrub)
     {
-        for(int32 Attempt=0;Attempt<95;++Attempt)
+        for(int32 Attempt=0;Attempt<150;++Attempt)
         {
             FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2150,2150),10);
-            if(!IsClearOfRoute(P,430.f)||Random.FRand()>.63f) continue;
+            if(!IsClearOfRoute(P,430.f)||Random.FRand()>.48f) continue;
             Shrubs->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
                 P,FVector(ShrubScale*Random.FRandRange(.65f,1.25f))));
         }
     }
     if(Grass)
     {
-        for(int32 Attempt=0;Attempt<130;++Attempt)
+        for(int32 Attempt=0;Attempt<220;++Attempt)
         {
             FVector P(Random.FRandRange(-3700,3700),Random.FRandRange(-2050,2050),9);
-            if(!IsClearOfRoute(P,320.f)||Random.FRand()>.72f) continue;
+            if(!IsClearOfRoute(P,320.f)||Random.FRand()>.55f) continue;
             Meadow->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
                 P,FVector(GrassScale*Random.FRandRange(.55f,1.15f))));
         }
@@ -449,7 +449,7 @@ void APDEnvironment::BuildAmbientFX()
     UStaticMesh* Sphere=LoadObject<UStaticMesh>(
         nullptr,TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     UStaticMesh* CloudMesh=FindProductionAsset<UStaticMesh>(FName(TEXT("cloud_A")));
-    if(!CloudMesh) CloudMesh=Sphere;
+    // Volumetric clouds provide the sky. Never fall back to giant sphere clouds.
 
     Fireflies->SetStaticMesh(Sphere);
     Dust->SetStaticMesh(Sphere);
@@ -487,14 +487,17 @@ void APDEnvironment::BuildAmbientFX()
         Birds->AddInstance(FTransform(FRotator::ZeroRotator,Origin,
             FVector(.18f,.055f,.026f)));
     }
-    for(int32 Index=0;Index<5;++Index)
+    if(CloudMesh)
     {
-        const FVector Origin(-4300.f+Index*1900.f,
-            Random.FRandRange(-300,1900),Random.FRandRange(1250,1650));
-        CloudOrigins.Add(Origin); CloudSpeeds.Add(Random.FRandRange(18.f,34.f));
-        const float Scale=Random.FRandRange(.75f,1.25f);
-        Clouds->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-            Origin,FVector(8.5f*Scale,4.2f*Scale,1.15f*Scale)));
+        for(int32 Index=0;Index<4;++Index)
+        {
+            const FVector Origin(-4300.f+Index*2400.f,
+                Random.FRandRange(900,2200),Random.FRandRange(1500,1850));
+            CloudOrigins.Add(Origin); CloudSpeeds.Add(Random.FRandRange(14.f,24.f));
+            const float Scale=Random.FRandRange(.65f,1.0f);
+            Clouds->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
+                Origin,FVector(5.2f*Scale,2.8f*Scale,.75f*Scale)));
+        }
     }
 }
 

@@ -360,11 +360,11 @@ void APDGameMode::CreateBuildPads()
 void APDGameMode::CreateCamera()
 {
     ACameraActor* Camera=GetWorld()->SpawnActor<ACameraActor>(
-        FVector(0,-6900,4400),FRotator(-34,90,0));
+        FVector(0,-6500,3850),FRotator(-30,90,0));
     if(Camera && Camera->GetCameraComponent())
     {
-        Camera->GetCameraComponent()->SetFieldOfView(53.f);
-        Camera->GetCameraComponent()->PostProcessBlendWeight=.18f;
+        Camera->GetCameraComponent()->SetFieldOfView(50.f);
+        Camera->GetCameraComponent()->PostProcessBlendWeight=.10f;
     }
     if(APlayerController* PC=UGameplayStatics::GetPlayerController(this,0))
         PC->SetViewTarget(Camera);
