@@ -43,8 +43,13 @@ sync_pack() {
 sync_pack "MedievalHexagon"   "https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git"
 sync_pack "Adventurers"   "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git"
 sync_pack "Skeletons"   "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git"
+sync_pack "DungeonRemastered"   "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0.git"
+
+echo
+echo "Textures et ciel Poly Haven CC0 (1K mobile)..."
+python3 "$SCRIPT_DIR/fetch_polyhaven_cc0.py"
 
 echo
 echo "Packs prêts dans: $DEST_ROOT"
 echo "Étape suivante:"
-echo "python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/import_kaykit_cc0_10.json"
+echo "bash tools/unreal/ultimate_setup_macos.sh"
