@@ -2,6 +2,7 @@
 #include "PDVisuals.h"
 
 #include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
 #include "Animation/AnimSequence.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/StaticMeshComponent.h"
@@ -359,7 +360,12 @@ void APDGameMode::CreateBuildPads()
 void APDGameMode::CreateCamera()
 {
     ACameraActor* Camera=GetWorld()->SpawnActor<ACameraActor>(
-        FVector(0,-6500,6200),FRotator(-48,90,0));
+        FVector(0,-6900,4400),FRotator(-34,90,0));
+    if(Camera && Camera->GetCameraComponent())
+    {
+        Camera->GetCameraComponent()->SetFieldOfView(53.f);
+        Camera->GetCameraComponent()->PostProcessBlendWeight=.18f;
+    }
     if(APlayerController* PC=UGameplayStatics::GetPlayerController(this,0))
         PC->SetViewTarget(Camera);
 }
