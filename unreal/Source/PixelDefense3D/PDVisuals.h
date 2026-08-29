@@ -5,6 +5,7 @@
 #include "PDVisuals.generated.h"
 
 class APDEnemy;
+class ADirectionalLight;
 class UHierarchicalInstancedStaticMeshComponent;
 class UPointLightComponent;
 class USceneComponent;
@@ -75,14 +76,27 @@ private:
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Path;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesA;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesB;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesC;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Shrubs;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Meadow;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Rocks;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Houses;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Walls;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Props;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Torches;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Fireflies;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Dust;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Birds;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Clouds;
     TArray<FVector> FireflyOrigins;
     TArray<float> FireflyPhases;
+    TArray<FVector> DustOrigins;
+    TArray<float> DustPhases;
+    TArray<FVector> BirdOrigins;
+    TArray<float> BirdPhases;
+    TArray<FVector> CloudOrigins;
+    TArray<float> CloudSpeeds;
+    TWeakObjectPtr<ADirectionalLight> Sun;
 
     void BuildTerrain();
     void BuildForest();

@@ -78,15 +78,15 @@ def make_unlit(name, color, strength=1.0, additive=False):
     return mat
 
 
-def make_pbr(name, asset_token, tint):
+def make_pbr(name, asset_token, tint, tiling=6.0):
     mat = material(name)
     diffuse = find_asset("Texture2D", asset_token, "diffuse")
     normal = find_asset("Texture2D", asset_token, "normal")
     rough = find_asset("Texture2D", asset_token, "roughness")
     uv = unreal.MaterialEditingLibrary.create_material_expression(
         mat, unreal.MaterialExpressionTextureCoordinate, -900, 20)
-    safe_set(uv, "u_tiling", 10.0)
-    safe_set(uv, "v_tiling", 10.0)
+    safe_set(uv, "u_tiling", tiling)
+    safe_set(uv, "v_tiling", tiling)
     if diffuse:
         sample = unreal.MaterialEditingLibrary.create_material_expression(
             mat, unreal.MaterialExpressionTextureSample, -550, -80)
@@ -127,15 +127,44 @@ def make_pbr(name, asset_token, tint):
     return mat
 
 
+def make_translucent_unlit(name, color_value, opacity_value):
+    mat = material(name)
+    safe_set(mat, "shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    safe_set(mat, "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    safe_set(mat, "two_sided", True)
+    color = constant_color(mat, color_value)
+    opacity = constant(mat, opacity_value, -420, 200)
+    unreal.MaterialEditingLibrary.connect_material_property(
+        color, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    unreal.MaterialEditingLibrary.connect_material_property(
+        opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    unreal.MaterialEditingLibrary.recompile_material(mat)
+    unreal.EditorAssetLibrary.save_loaded_asset(mat)
+    return mat
+
+
 def make_water():
     mat = material("M_Water_River")
     safe_set(mat, "shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     safe_set(mat, "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     safe_set(mat, "two_sided", True)
-    color = constant_color(mat, (.035, .28, .42, 1))
-    opacity = constant(mat, .78, -420, 200)
+    deep = constant_color(mat, (.018, .16, .24, 1), -720, -80)
+    shimmer = constant_color(mat, (.04, .42, .55, 1), -720, 100)
+    time_node = unreal.MaterialEditingLibrary.create_material_expression(
+        mat, unreal.MaterialExpressionTime, -900, 260)
+    sine = unreal.MaterialEditingLibrary.create_material_expression(
+        mat, unreal.MaterialExpressionSine, -680, 260)
+    safe_set(sine, "period", 4.5)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        time_node, "", sine, "Input")
+    lerp = unreal.MaterialEditingLibrary.create_material_expression(
+        mat, unreal.MaterialExpressionLinearInterpolate, -340, 20)
+    unreal.MaterialEditingLibrary.connect_material_expressions(deep, "", lerp, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(shimmer, "", lerp, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(sine, "", lerp, "Alpha")
+    opacity = constant(mat, .72, -420, 330)
     unreal.MaterialEditingLibrary.connect_material_property(
-        color, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+        lerp, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     unreal.MaterialEditingLibrary.connect_material_property(
         opacity, "", unreal.MaterialProperty.MP_OPACITY)
     unreal.MaterialEditingLibrary.recompile_material(mat)
@@ -144,9 +173,12 @@ def make_water():
 
 def build_materials():
     unreal.EditorAssetLibrary.make_directory(MATERIAL_PATH)
-    make_pbr("M_Ground_Forest", "forrest_ground_01", (0.46, .72, .42, 1))
-    make_pbr("M_Path_Dirt", "grass_path_2", (.82, .68, .48, 1))
+    make_pbr("M_Ground_Forest", "leafy_grass", (.72, .83, .64, 1), 5.0)
+    make_pbr("M_Path_Dirt", "grass_path_3", (.78, .68, .53, 1), 3.2)
     make_water()
+    make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
+    make_unlit("M_Bird", (.012, .016, .022, 1), .35)
+    make_unlit("M_FX_Dust", (1.0, .55, .18, 1), 2.2, True)
     make_unlit("M_FX_Arrow", (1.0, .42, .05, 1), 5.0, True)
     make_unlit("M_FX_Frost", (.02, .62, 1.0, 1), 12.0, True)
     make_unlit("M_FX_Fire", (1.0, .08, .01, 1), 16.0, True)
@@ -188,8 +220,8 @@ def build_level():
                 (0, 0, 3800), (-42, -28, -18))
     sun_component = actor_component(sun, unreal.DirectionalLightComponent)
     if sun_component:
-        safe_set(sun_component, "intensity", 7.5)
-        safe_set(sun_component, "light_color", unreal.Color(255, 226, 190))
+        safe_set(sun_component, "intensity", 4.2)
+        safe_set(sun_component, "light_color", unreal.Color(255, 236, 211))
         safe_set(sun_component, "cast_shadows", True)
         safe_set(sun_component, "atmosphere_sun_light", True)
         safe_set(sun_component, "atmosphere_sun_light_index", 0)
@@ -198,9 +230,9 @@ def build_level():
     skylight = spawn(actor_subsystem, unreal.SkyLight, "PD_SkyLight")
     sky_component = actor_component(skylight, unreal.SkyLightComponent)
     if sky_component:
-        safe_set(sky_component, "intensity", 1.15)
+        safe_set(sky_component, "intensity", .72)
         safe_set(sky_component, "mobility", unreal.ComponentMobility.MOVABLE)
-        hdri = find_asset("TextureCube", "noon_grass")
+        hdri = find_asset("TextureCube", "kloofendal_48d_partly_cloudy_puresky")
         if hdri:
             safe_set(sky_component, "source_type",
                      unreal.SkyLightSourceType.SLS_SPECIFIED_CUBEMAP)
@@ -213,12 +245,20 @@ def build_level():
                 (0, 0, -100))
     fog_component = actor_component(fog, unreal.ExponentialHeightFogComponent)
     if fog_component:
-        safe_set(fog_component, "fog_density", .012)
+        safe_set(fog_component, "fog_density", .006)
         safe_set(fog_component, "fog_height_falloff", .22)
         safe_set(fog_component, "fog_inscattering_color",
-                 unreal.LinearColor(.38, .55, .64, 1))
+                 unreal.LinearColor(.48, .58, .62, 1))
         safe_set(fog_component, "start_distance", 1200.0)
         safe_set(fog_component, "volumetric_fog", False)
+
+    wind = spawn(actor_subsystem, unreal.WindDirectionalSource, "PD_ValleyWind",
+                 (0, 0, 800), (0, 35, 0))
+    wind_component = actor_component(wind, unreal.WindDirectionalSourceComponent)
+    if wind_component:
+        safe_set(wind_component, "strength", .28)
+        safe_set(wind_component, "speed", .42)
+        safe_set(wind_component, "radius", 9000.0)
 
     post = spawn(actor_subsystem, unreal.PostProcessVolume, "PD_ColorGrade")
     safe_set(post, "unbound", True)
@@ -226,17 +266,17 @@ def build_level():
     settings = post.get_editor_property("settings")
     for name, value in (
         ("override_bloom_intensity", True),
-        ("bloom_intensity", .45),
+        ("bloom_intensity", .28),
         ("override_vignette_intensity", True),
-        ("vignette_intensity", .24),
+        ("vignette_intensity", .16),
         ("override_auto_exposure_min_brightness", True),
-        ("auto_exposure_min_brightness", .85),
+        ("auto_exposure_min_brightness", 1.0),
         ("override_auto_exposure_max_brightness", True),
-        ("auto_exposure_max_brightness", 1.35),
+        ("auto_exposure_max_brightness", 1.0),
         ("override_color_saturation", True),
-        ("color_saturation", unreal.Vector4(1.06, 1.04, 1.0, 1.0)),
+        ("color_saturation", unreal.Vector4(.98, 1.0, .96, 1.0)),
         ("override_color_contrast", True),
-        ("color_contrast", unreal.Vector4(1.08, 1.08, 1.08, 1.0)),
+        ("color_contrast", unreal.Vector4(1.04, 1.04, 1.04, 1.0)),
     ):
         safe_set(settings, name, value)
     safe_set(post, "settings", settings)
@@ -249,10 +289,11 @@ def build_level():
         "sky_lights": 1,
         "height_fog": 1,
         "post_process": 1,
+        "wind": 1,
     }
 
 
 build_materials()
 summary = build_level()
-summary["materials"] = 10
+summary["materials"] = 13
 print("ULTIMATE_WORLD_JSON " + json.dumps(summary, ensure_ascii=False))

@@ -7,6 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/DirectionalLight.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInterface.h"
 #include "Modules/ModuleManager.h"
@@ -253,17 +254,27 @@ APDEnvironment::APDEnvironment()
     };
     Path=MakeHISM(TEXT("Path"));
     TreesA=MakeHISM(TEXT("TreesA")); TreesB=MakeHISM(TEXT("TreesB"));
-    Rocks=MakeHISM(TEXT("Rocks")); Houses=MakeHISM(TEXT("Houses"));
-    Walls=MakeHISM(TEXT("Walls")); Props=MakeHISM(TEXT("Props"));
-    Torches=MakeHISM(TEXT("Torches"));
-    Fireflies=MakeHISM(TEXT("Fireflies"));
+    TreesC=MakeHISM(TEXT("TreesC")); Shrubs=MakeHISM(TEXT("Shrubs"));
+    Meadow=MakeHISM(TEXT("Meadow")); Rocks=MakeHISM(TEXT("Rocks"));
+    Houses=MakeHISM(TEXT("Houses")); Walls=MakeHISM(TEXT("Walls"));
+    Props=MakeHISM(TEXT("Props")); Torches=MakeHISM(TEXT("Torches"));
+    Fireflies=MakeHISM(TEXT("Fireflies")); Dust=MakeHISM(TEXT("Dust"));
+    Birds=MakeHISM(TEXT("Birds")); Clouds=MakeHISM(TEXT("Clouds"));
     Fireflies->SetMobility(EComponentMobility::Movable);
+    Dust->SetMobility(EComponentMobility::Movable);
+    Birds->SetMobility(EComponentMobility::Movable);
+    Clouds->SetMobility(EComponentMobility::Movable);
 }
 
 void APDEnvironment::BeginPlay()
 {
     Super::BeginPlay();
     BuildTerrain(); BuildForest(); BuildVillage(); BuildAmbientFX();
+    for(TActorIterator<ADirectionalLight> It(GetWorld());It;++It)
+    {
+        Sun=*It;
+        break;
+    }
 }
 
 void APDEnvironment::BuildTerrain()
@@ -293,7 +304,7 @@ void APDEnvironment::BuildTerrain()
         const float Length=FVector2D(Delta.X,Delta.Y).Size()+90.f;
         const float Yaw=FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X));
         Path->AddInstance(FTransform(FRotator(0,Yaw,0),Mid,
-            FVector(Length/100.f,5.2f,.12f)));
+            FVector(Length/100.f,3.55f,.10f)));
     }
 }
 
@@ -301,32 +312,74 @@ void APDEnvironment::BuildForest()
 {
     UStaticMesh* TreeA=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_A")));
     UStaticMesh* TreeB=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_B")));
+    UStaticMesh* TreeC=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_C")));
+    UStaticMesh* Shrub=FindProductionAsset<UStaticMesh>(FName(TEXT("bush_single_A")));
+    UStaticMesh* Grass=FindProductionAsset<UStaticMesh>(FName(TEXT("grass_A")));
     UStaticMesh* Rock=FindProductionAsset<UStaticMesh>(FName(TEXT("rock_single_C")));
-    TreesA->SetStaticMesh(TreeA); TreesB->SetStaticMesh(TreeB); Rocks->SetStaticMesh(Rock);
-    const float TreeAScale=UniformHeightScale(TreeA,620.f);
-    const float TreeBScale=UniformHeightScale(TreeB,520.f);
-    const float RockScale=UniformWidthScale(Rock,230.f);
+    if(!TreeC) TreeC=TreeB?TreeB:TreeA;
+    TreesA->SetStaticMesh(TreeA); TreesB->SetStaticMesh(TreeB);
+    TreesC->SetStaticMesh(TreeC); Shrubs->SetStaticMesh(Shrub);
+    Meadow->SetStaticMesh(Grass); Rocks->SetStaticMesh(Rock);
 
+    const float TreeAScale=UniformHeightScale(TreeA,560.f);
+    const float TreeBScale=UniformHeightScale(TreeB,470.f);
+    const float TreeCScale=UniformHeightScale(TreeC,390.f);
+    const float ShrubScale=UniformWidthScale(Shrub,150.f);
+    const float GrassScale=UniformWidthScale(Grass,95.f);
+    const float RockScale=UniformWidthScale(Rock,210.f);
     FRandomStream Random(20260829);
-    for(int32 X=-3900;X<=3900;X+=430)
-    for(int32 Y=-2350;Y<=2350;Y+=390)
+
+    // Dense framing only at the valley edges; the playable center stays readable.
+    for(int32 Attempt=0;Attempt<150;++Attempt)
     {
-        FVector P(X+Random.FRandRange(-155,155),Y+Random.FRandRange(-140,140),15);
-        if(!IsClearOfRoute(P,690.f) || Random.FRand()>.72f) continue;
-        const float Scale=(Random.FRandRange(.82f,1.22f))*
-            (Random.FRand()>.48f?TreeAScale:TreeBScale);
-        const FTransform T(FRotator(0,Random.FRandRange(0,360),0),P,FVector(Scale));
-        (Random.FRand()>.48f?TreesA:TreesB)->AddInstance(T);
+        FVector P(Random.FRandRange(-4050,4050),Random.FRandRange(-2380,2380),14);
+        const bool bEdge=FMath::Abs(P.X)>2850.f||FMath::Abs(P.Y)>1700.f;
+        const bool bGrove=(P.X<-1750.f&&P.Y>650.f)||(P.X>1550.f&&P.Y>1050.f);
+        if((!bEdge&&!bGrove)||!IsClearOfRoute(P,760.f)||Random.FRand()>.58f) continue;
+        const float Choice=Random.FRand();
+        UHierarchicalInstancedStaticMeshComponent* Layer =
+            Choice<.34f?TreesA:(Choice<.70f?TreesB:TreesC);
+        const float Base=Choice<.34f?TreeAScale:(Choice<.70f?TreeBScale:TreeCScale);
+        const FVector Scale(Base*Random.FRandRange(.78f,1.18f),
+                            Base*Random.FRandRange(.78f,1.18f),
+                            Base*Random.FRandRange(.88f,1.22f));
+        Layer->AddInstance(FTransform(
+            FRotator(Random.FRandRange(-2.f,2.f),Random.FRandRange(0,360),0),
+            P,Scale));
     }
-    for(int32 Index=0;Index<54;++Index)
+
+    // Low vegetation breaks the empty ground without rebuilding a wall of pines.
+    if(Shrub)
     {
-        FVector P(Random.FRandRange(-3900,3900),Random.FRandRange(-2350,2350),12);
-        if(!IsClearOfRoute(P,580.f)){--Index;continue;}
+        for(int32 Attempt=0;Attempt<95;++Attempt)
+        {
+            FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2150,2150),10);
+            if(!IsClearOfRoute(P,430.f)||Random.FRand()>.63f) continue;
+            Shrubs->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
+                P,FVector(ShrubScale*Random.FRandRange(.65f,1.25f))));
+        }
+    }
+    if(Grass)
+    {
+        for(int32 Attempt=0;Attempt<130;++Attempt)
+        {
+            FVector P(Random.FRandRange(-3700,3700),Random.FRandRange(-2050,2050),9);
+            if(!IsClearOfRoute(P,320.f)||Random.FRand()>.72f) continue;
+            Meadow->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
+                P,FVector(GrassScale*Random.FRandRange(.55f,1.15f))));
+        }
+    }
+    for(int32 Attempt=0,Placed=0;Attempt<100&&Placed<28;++Attempt)
+    {
+        FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2200,2200),11);
+        if(!IsClearOfRoute(P,540.f)) continue;
         Rocks->AddInstance(FTransform(
-            FRotator(Random.FRandRange(-8,8),Random.FRandRange(0,360),0),
-            P,FVector(RockScale*Random.FRandRange(.55f,1.35f))));
+            FRotator(Random.FRandRange(-7,7),Random.FRandRange(0,360),0),
+            P,FVector(RockScale*Random.FRandRange(.48f,1.18f))));
+        ++Placed;
     }
 }
+
 
 void APDEnvironment::BuildVillage()
 {
@@ -351,8 +404,8 @@ void APDEnvironment::BuildVillage()
     Castle->SetRelativeScale3D(FVector(CastleScale));
 
     const FVector HouseSpots[]={
-        {2450,1550,10},{1900,1650,10},{1250,1550,10},
-        {-2700,1300,10},{-2050,1450,10},{-1450,1450,10}
+        {2450,1580,10},{1770,1750,10},{1120,1510,10},
+        {-2700,1320,10},{-1940,1510,10}
     };
     for(int32 Index=0;Index<UE_ARRAY_COUNT(HouseSpots);++Index)
         Houses->AddInstance(FTransform(FRotator(0,Index%2?145:-25,0),
@@ -364,7 +417,7 @@ void APDEnvironment::BuildVillage()
             FVector(3300,230-Index*300,10),FVector(WallScale)));
     }
     FRandomStream Random(77);
-    for(int32 Index=0;Index<24;++Index)
+    for(int32 Index=0;Index<12;++Index)
     {
         const FVector P(Random.FRandRange(1100,2950),
             Random.FRandRange(1150,2050),18);
@@ -392,23 +445,67 @@ void APDEnvironment::BuildAmbientFX()
 {
     UStaticMesh* Sphere=LoadObject<UStaticMesh>(
         nullptr,TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+    UStaticMesh* CloudMesh=FindProductionAsset<UStaticMesh>(FName(TEXT("cloud_A")));
+    if(!CloudMesh) CloudMesh=Sphere;
+
     Fireflies->SetStaticMesh(Sphere);
+    Dust->SetStaticMesh(Sphere);
+    Birds->SetStaticMesh(Sphere);
+    Clouds->SetStaticMesh(CloudMesh);
     if(UMaterialInterface* Material=LoadMaterial(TEXT("M_FX_Firefly")))
         Fireflies->SetMaterial(0,Material);
+    if(UMaterialInterface* Material=LoadMaterial(TEXT("M_FX_Dust")))
+        Dust->SetMaterial(0,Material);
+    if(UMaterialInterface* Material=LoadMaterial(TEXT("M_Bird")))
+        Birds->SetMaterial(0,Material);
+    if(UMaterialInterface* Material=LoadMaterial(TEXT("M_Cloud")))
+        Clouds->SetMaterial(0,Material);
+
     FRandomStream Random(4242);
-    for(int32 Index=0;Index<22;++Index)
+    for(int32 Index=0;Index<18;++Index)
     {
-        const FVector Origin(Random.FRandRange(-3300,3100),
-            Random.FRandRange(-1850,1900),Random.FRandRange(120,420));
+        const FVector Origin(Random.FRandRange(-3200,3000),
+            Random.FRandRange(-1750,1850),Random.FRandRange(110,390));
         FireflyOrigins.Add(Origin); FireflyPhases.Add(Random.FRandRange(0,2*PI));
-        Fireflies->AddInstance(FTransform(FRotator::ZeroRotator,Origin,FVector(.025f)));
+        Fireflies->AddInstance(FTransform(FRotator::ZeroRotator,Origin,FVector(.022f)));
+    }
+    for(int32 Index=0;Index<20;++Index)
+    {
+        const FVector Origin(Random.FRandRange(-3100,3000),
+            Random.FRandRange(-1700,1750),Random.FRandRange(80,260));
+        DustOrigins.Add(Origin); DustPhases.Add(Random.FRandRange(0,2*PI));
+        Dust->AddInstance(FTransform(FRotator::ZeroRotator,Origin,FVector(.012f)));
+    }
+    for(int32 Index=0;Index<9;++Index)
+    {
+        const FVector Origin(Random.FRandRange(-2400,2400),
+            Random.FRandRange(-900,1600),Random.FRandRange(720,1050));
+        BirdOrigins.Add(Origin); BirdPhases.Add(Random.FRandRange(0,2*PI));
+        Birds->AddInstance(FTransform(FRotator::ZeroRotator,Origin,
+            FVector(.18f,.055f,.026f)));
+    }
+    for(int32 Index=0;Index<5;++Index)
+    {
+        const FVector Origin(-4300.f+Index*1900.f,
+            Random.FRandRange(-300,1900),Random.FRandRange(1250,1650));
+        CloudOrigins.Add(Origin); CloudSpeeds.Add(Random.FRandRange(18.f,34.f));
+        const float Scale=Random.FRandRange(.75f,1.25f);
+        Clouds->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
+            Origin,FVector(8.5f*Scale,4.2f*Scale,1.15f*Scale)));
     }
 }
+
 
 void APDEnvironment::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Time=GetWorld()->GetTimeSeconds();
+    if(Sun.IsValid())
+    {
+        FRotator Rotation=Sun->GetActorRotation();
+        Rotation.Yaw=FMath::Fmod(Rotation.Yaw+DeltaSeconds*.18f,360.f);
+        Sun->SetActorRotation(Rotation);
+    }
     for(int32 Index=0;Index<FireflyOrigins.Num();++Index)
     {
         const float Phase=FireflyPhases[Index];
@@ -417,8 +514,44 @@ void APDEnvironment::Tick(float DeltaSeconds)
             FMath::Cos(Time*.65f+Phase)*55.f,
             FMath::Sin(Time*1.35f+Phase)*38.f);
         Fireflies->UpdateInstanceTransform(Index,
-            FTransform(FRotator::ZeroRotator,FireflyOrigins[Index]+Offset,FVector(.025f)),
+            FTransform(FRotator::ZeroRotator,FireflyOrigins[Index]+Offset,FVector(.022f)),
+            false,false,true);
+    }
+    for(int32 Index=0;Index<DustOrigins.Num();++Index)
+    {
+        const float Phase=DustPhases[Index];
+        FVector P=DustOrigins[Index]+FVector(
+            FMath::Sin(Time*.24f+Phase)*95.f,
+            FMath::Cos(Time*.19f+Phase)*70.f,
+            FMath::Fmod(Time*13.f+Phase*35.f,180.f));
+        Dust->UpdateInstanceTransform(Index,
+            FTransform(FRotator::ZeroRotator,P,FVector(.012f)),false,false,true);
+    }
+    for(int32 Index=0;Index<BirdOrigins.Num();++Index)
+    {
+        const float Phase=BirdPhases[Index]+Time*(.24f+.018f*Index);
+        const float Radius=260.f+38.f*(Index%4);
+        FVector P=BirdOrigins[Index]+FVector(
+            FMath::Cos(Phase)*Radius,FMath::Sin(Phase)*Radius*.62f,
+            FMath::Sin(Phase*2.f)*42.f);
+        const float Yaw=FMath::RadiansToDegrees(Phase)+90.f;
+        Birds->UpdateInstanceTransform(Index,
+            FTransform(FRotator(0,Yaw,0),P,FVector(.18f,.055f,.026f)),
+            false,false,true);
+    }
+    for(int32 Index=0;Index<CloudOrigins.Num();++Index)
+    {
+        FVector P=CloudOrigins[Index];
+        P.X=FMath::Fmod(P.X+Time*CloudSpeeds[Index]+4500.f,9000.f)-4500.f;
+        P.Z+=FMath::Sin(Time*.08f+Index)*35.f;
+        const float Scale=.82f+.09f*(Index%4);
+        Clouds->UpdateInstanceTransform(Index,
+            FTransform(FRotator(0,Index*37.f,0),P,
+                FVector(8.5f*Scale,4.2f*Scale,1.15f*Scale)),
             false,false,true);
     }
     if(FireflyOrigins.Num()) Fireflies->MarkRenderStateDirty();
+    if(DustOrigins.Num()) Dust->MarkRenderStateDirty();
+    if(BirdOrigins.Num()) Birds->MarkRenderStateDirty();
+    if(CloudOrigins.Num()) Clouds->MarkRenderStateDirty();
 }

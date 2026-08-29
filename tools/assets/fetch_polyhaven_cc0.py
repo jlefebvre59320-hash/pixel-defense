@@ -17,6 +17,19 @@ HEADERS = {
     "Referer": "https://github.com/jlefebvre59320-hash/pixel-defense",
 }
 ASSETS = {
+    "kloofendal_48d_partly_cloudy_puresky": [
+        ("environment", ("1k", ".hdr")),
+    ],
+    "leafy_grass": [
+        ("diffuse", ("1k", "diff")),
+        ("normal", ("1k", "nor_gl")),
+        ("roughness", ("1k", "rough")),
+    ],
+    "grass_path_3": [
+        ("diffuse", ("1k", "diff")),
+        ("normal", ("1k", "nor_gl")),
+        ("roughness", ("1k", "rough")),
+    ],
     "noon_grass": [("environment", ("1k", ".hdr"))],
     "forrest_ground_01": [
         ("diffuse", ("1k", "diff")),
