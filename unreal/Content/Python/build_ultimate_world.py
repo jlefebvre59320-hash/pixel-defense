@@ -199,8 +199,15 @@ def build_level():
     sky_component = actor_component(skylight, unreal.SkyLightComponent)
     if sky_component:
         safe_set(sky_component, "intensity", 1.15)
-        safe_set(sky_component, "real_time_capture", True)
         safe_set(sky_component, "mobility", unreal.ComponentMobility.MOVABLE)
+        hdri = find_asset("TextureCube", "noon_grass")
+        if hdri:
+            safe_set(sky_component, "source_type",
+                     unreal.SkyLightSourceType.SLS_SPECIFIED_CUBEMAP)
+            safe_set(sky_component, "cubemap", hdri)
+            safe_set(sky_component, "real_time_capture", False)
+        else:
+            safe_set(sky_component, "real_time_capture", True)
 
     fog = spawn(actor_subsystem, unreal.ExponentialHeightFog, "PD_HeightFog",
                 (0, 0, -100))
