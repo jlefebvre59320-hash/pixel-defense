@@ -3,11 +3,11 @@
 from __future__ import annotations
 import hashlib
 import json
-import os
 import pathlib
+import shutil
+import subprocess
 import sys
 import urllib.parse
-import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEST = ROOT / "unreal" / "ExternalAssets" / "PolyHaven"
@@ -19,22 +19,48 @@ HEADERS = {
 ASSETS = {
     "noon_grass": [("environment", ("1k", ".hdr"))],
     "forrest_ground_01": [
-        ("diffuse", ("1k", "diff",)),
-        ("normal", ("1k", "nor_gl",)),
-        ("roughness", ("1k", "rough",)),
+        ("diffuse", ("1k", "diff")),
+        ("normal", ("1k", "nor_gl")),
+        ("roughness", ("1k", "rough")),
     ],
     "grass_path_2": [
-        ("diffuse", ("1k", "diff",)),
-        ("normal", ("1k", "nor_gl",)),
-        ("roughness", ("1k", "rough",)),
+        ("diffuse", ("1k", "diff")),
+        ("normal", ("1k", "nor_gl")),
+        ("roughness", ("1k", "rough")),
     ],
 }
 
 
+def curl_args(url: str) -> list[str]:
+    if not shutil.which("curl"):
+        raise RuntimeError("curl est requis sur macOS pour télécharger les assets")
+    args = [
+        "curl",
+        "--fail",
+        "--location",
+        "--silent",
+        "--show-error",
+        "--retry",
+        "3",
+        "--connect-timeout",
+        "30",
+        "--max-time",
+        "180",
+    ]
+    for name, value in HEADERS.items():
+        args.extend(["--header", f"{name}: {value}"])
+    args.append(url)
+    return args
+
+
 def request_json(url: str):
-    request = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)
+    result = subprocess.run(
+        curl_args(url),
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return json.loads(result.stdout.decode("utf-8"))
 
 
 def url_candidates(node, path=""):
@@ -74,15 +100,18 @@ def download(url: str, destination: pathlib.Path):
     if destination.exists() and destination.stat().st_size > 1024:
         print(f"Déjà présent: {destination.name}")
         return
-    request = urllib.request.Request(url, headers=HEADERS)
     temporary = destination.with_suffix(destination.suffix + ".part")
-    with urllib.request.urlopen(request, timeout=180) as response, open(temporary, "wb") as handle:
-        while True:
-            block = response.read(1024 * 1024)
-            if not block:
-                break
-            handle.write(block)
-    temporary.replace(destination)
+    temporary.unlink(missing_ok=True)
+    try:
+        subprocess.run(
+            [*curl_args(url)[:-1], "--output", str(temporary), url],
+            check=True,
+        )
+        if temporary.stat().st_size <= 1024:
+            raise RuntimeError(f"fichier téléchargé trop petit: {destination.name}")
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
     print(f"Téléchargé: {destination.name} ({destination.stat().st_size // 1024} KiB)")
 
 
@@ -120,6 +149,10 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except subprocess.CalledProcessError as exc:
+        details = exc.stderr.decode("utf-8", errors="replace").strip() if exc.stderr else str(exc)
+        print(f"Erreur Poly Haven (curl): {details}", file=sys.stderr)
+        raise
     except Exception as exc:
         print(f"Erreur Poly Haven: {exc}", file=sys.stderr)
         raise
