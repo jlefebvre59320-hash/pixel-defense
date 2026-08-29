@@ -1,20 +1,71 @@
 #include "PDGame.h"
 
 #include "Camera/CameraActor.h"
+#include "Animation/AnimSequence.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/SkeletalMesh.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/ConstructorHelpers.h"
+
+namespace
+{
+template <typename AssetType>
+AssetType* FindKayKitAsset(const FName RequestedName)
+{
+    FAssetRegistryModule& Module =
+        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    TArray<FAssetData> Assets;
+    Module.Get().GetAssetsByPath(
+        FName(TEXT("/Game/ThirdParty/KayKit")), Assets, true, false);
+    const FTopLevelAssetPath WantedClass = AssetType::StaticClass()->GetClassPathName();
+    for(const FAssetData& Asset : Assets)
+    {
+        if(Asset.AssetName == RequestedName && Asset.AssetClassPath == WantedClass)
+            return Cast<AssetType>(Asset.GetAsset());
+    }
+    return nullptr;
+}
+
+UAnimSequence* FindWalkingAnimation(USkeletalMesh* Mesh)
+{
+    if(!Mesh || !Mesh->GetSkeleton()) return nullptr;
+    FAssetRegistryModule& Module =
+        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    TArray<FAssetData> Assets;
+    Module.Get().GetAssetsByPath(
+        FName(TEXT("/Game/ThirdParty/KayKit")), Assets, true, false);
+    for(const FAssetData& Asset : Assets)
+    {
+        if(Asset.AssetClassPath != UAnimSequence::StaticClass()->GetClassPathName())
+            continue;
+        const FString Name = Asset.AssetName.ToString().ToLower();
+        if(!Name.Contains(TEXT("walk")) && !Name.Contains(TEXT("run")))
+            continue;
+        UAnimSequence* Animation = Cast<UAnimSequence>(Asset.GetAsset());
+        if(Animation && Animation->GetSkeleton() == Mesh->GetSkeleton())
+            return Animation;
+    }
+    return nullptr;
+}
+}
 
 APDEnemy::APDEnemy()
 {
     PrimaryActorTick.bCanEverTick=true;
     Visual=CreateDefaultSubobject<UStaticMeshComponent>("Visual");
     RootComponent=Visual;
+    CharacterVisual=CreateDefaultSubobject<USkeletalMeshComponent>("CharacterVisual");
+    CharacterVisual->SetupAttachment(Visual);
+    CharacterVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    CharacterVisual->SetVisibility(false);
     Visual->SetCollisionProfileName("BlockAllDynamic");
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Shape(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if(Shape.Succeeded()) Visual->SetStaticMesh(Shape.Object);
@@ -28,6 +79,23 @@ void APDEnemy::InitEnemy(const TArray<FVector>& InPath,float InHP,float InSpeed,
     PathIndex=1; Travelled=0.f; TotalDistance=0.f;
     for(int32 i=1;i<Path.Num();++i) TotalDistance+=FVector::Distance(Path[i-1],Path[i]);
     if(Path.Num()) SetActorLocation(Path[0]);
+}
+
+void APDEnemy::UseProductionCharacter(FName MeshName)
+{
+    if(USkeletalMesh* Mesh=FindKayKitAsset<USkeletalMesh>(MeshName))
+    {
+        CharacterVisual->SetSkeletalMeshAsset(Mesh);
+        CharacterVisual->SetRelativeRotation(FRotator(0.f,-90.f,0.f));
+        CharacterVisual->SetVisibility(true);
+        Visual->SetVisibility(false,false);
+        if(UAnimSequence* Walking=FindWalkingAnimation(Mesh))
+        {
+            CharacterVisual->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+            CharacterVisual->SetAnimation(Walking);
+            CharacterVisual->Play(true);
+        }
+    }
 }
 
 void APDEnemy::Tick(float DeltaSeconds)
@@ -85,15 +153,32 @@ APDTower::APDTower()
     SetActorScale3D(FVector(.75f,.75f,1.5f));
 }
 
+void APDTower::UseProductionMesh(FName MeshName)
+{
+    if(UStaticMesh* Mesh=FindKayKitAsset<UStaticMesh>(MeshName))
+    {
+        Visual->SetStaticMesh(Mesh);
+        SetActorScale3D(FVector(1.35f));
+    }
+}
+
 void APDTower::Configure(EPDTowerKind InKind)
 {
     Kind=InKind; SplashRadius=0.f; SlowFactor=1.f; SlowDuration=0.f; bIgnoreArmor=false;
     switch(Kind)
     {
-        case EPDTowerKind::Archer: Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f; break;
-        case EPDTowerKind::Frost: Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f; break;
-        case EPDTowerKind::Bombard: Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f; break;
-        case EPDTowerKind::Mage: Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true; break;
+        case EPDTowerKind::Archer:
+            Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f;
+            UseProductionMesh("building_archeryrange_blue"); break;
+        case EPDTowerKind::Frost:
+            Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f;
+            UseProductionMesh("building_tower_B_blue"); break;
+        case EPDTowerKind::Bombard:
+            Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f;
+            UseProductionMesh("building_tower_catapult_blue"); break;
+        case EPDTowerKind::Mage:
+            Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true;
+            UseProductionMesh("building_tower_A_blue"); break;
     }
 }
 
@@ -207,6 +292,10 @@ void APDGameMode::SpawnEnemy()
         const float BaseHP=bBoss?220.f:(bArmored?55.f:(bFast?16.f:25.f));
         const float MoveSpeed=bBoss?120.f:(bFast?410.f:245.f);
         E->InitEnemy(EnemyPath,BaseHP*Ramp,MoveSpeed,bArmored?4:0,bBoss?45:(bArmored?10:5),bBoss?5:1);
+        const FName Character = bBoss ? FName("Skeleton_Warrior")
+            : (bFast ? FName("Skeleton_Rogue")
+            : (bArmored ? FName("Skeleton_Mage") : FName("Skeleton_Minion")));
+        E->UseProductionCharacter(Character);
         if(bBoss) E->SetActorScale3D(FVector(1.4f));
         ++AliveEnemies;
     }
