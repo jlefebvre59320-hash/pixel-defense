@@ -231,16 +231,16 @@ void APDTower::Configure(EPDTowerKind InKind)
     {
         case EPDTowerKind::Archer:
             Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f;
-            UseProductionMesh(FName(TEXT("building_archeryrange_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_archeryrange_green"))); break;
         case EPDTowerKind::Frost:
             Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f;
             UseProductionMesh(FName(TEXT("building_tower_B_blue"))); break;
         case EPDTowerKind::Bombard:
             Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f;
-            UseProductionMesh(FName(TEXT("building_tower_catapult_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_catapult_red"))); break;
         case EPDTowerKind::Mage:
             Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true;
-            UseProductionMesh(FName(TEXT("building_tower_A_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_A_yellow"))); break;
     }
 }
 
