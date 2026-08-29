@@ -1,0 +1,21 @@
+{
+  "name": "import_kaykit_cc0_10",
+  "description": "Importe la direction artistique KayKit CC0 puis vérifie les assets disponibles.",
+  "steps": [
+    {
+      "name": "Contrôle Unreal",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": false
+    },
+    {
+      "name": "Import KayKit CC0",
+      "script": "unreal/Content/Python/import_kaykit_cc0.py",
+      "params": {}
+    },
+    {
+      "name": "Inventaire après import",
+      "script": "unreal/Content/Python/inventory_production_assets.py",
+      "params": {}
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "production_asset_inventory_09",
+  "description": "Analyse sans modification tous les packs réellement importés dans PixelDefense3D.",
+  "steps": [
+    {
+      "name": "Contrôle Unreal",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true
+    },
+    {
+      "name": "Inventaire des vrais assets",
+      "script": "unreal/Content/Python/inventory_production_assets.py",
+      "params": {}
+    }
+  ]
+}
