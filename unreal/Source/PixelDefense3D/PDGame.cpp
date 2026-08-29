@@ -22,6 +22,9 @@ namespace
 template <typename AssetType>
 AssetType* FindKayKitAsset(const FName RequestedName)
 {
+    static TMap<FName,TWeakObjectPtr<AssetType>> Cache;
+    if(const TWeakObjectPtr<AssetType>* Cached=Cache.Find(RequestedName))
+        if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
     TArray<FAssetData> Assets;
@@ -31,7 +34,11 @@ AssetType* FindKayKitAsset(const FName RequestedName)
     for(const FAssetData& Asset : Assets)
     {
         if(Asset.AssetName == RequestedName && Asset.AssetClassPath == WantedClass)
-            return Cast<AssetType>(Asset.GetAsset());
+        {
+            AssetType* Loaded=Cast<AssetType>(Asset.GetAsset());
+            if(Loaded) Cache.Add(RequestedName,Loaded);
+            return Loaded;
+        }
     }
     return nullptr;
 }
@@ -40,6 +47,11 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
                                        const TCHAR* Alternate=nullptr)
 {
     if(!Mesh || !Mesh->GetSkeleton()) return nullptr;
+    const FString CacheKey=Mesh->GetPathName()+TEXT("|")+Token+
+        (Alternate?FString(Alternate):FString());
+    static TMap<FString,TWeakObjectPtr<UAnimSequence>> Cache;
+    if(const TWeakObjectPtr<UAnimSequence>* Cached=Cache.Find(CacheKey))
+        if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
     TArray<FAssetData> Assets;
@@ -56,7 +68,10 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
             continue;
         UAnimSequence* Animation=Cast<UAnimSequence>(Asset.GetAsset());
         if(Animation && Animation->GetSkeleton()==Mesh->GetSkeleton())
+        {
+            Cache.Add(CacheKey,Animation);
             return Animation;
+        }
     }
     return nullptr;
 }
