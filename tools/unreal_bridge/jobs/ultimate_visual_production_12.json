@@ -1,0 +1,26 @@
+{
+  "name": "ultimate_visual_production_12",
+  "description": "Importe les packs CC0, crée KingdomValley et vérifie tous les assets.",
+  "steps": [
+    {
+      "name": "Contrôle Unreal",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": false
+    },
+    {
+      "name": "Import production animé",
+      "script": "unreal/Content/Python/import_kaykit_cc0.py",
+      "params": {}
+    },
+    {
+      "name": "Carte et matériaux ultimes",
+      "script": "unreal/Content/Python/build_ultimate_world.py",
+      "params": {}
+    },
+    {
+      "name": "Inventaire final",
+      "script": "unreal/Content/Python/inventory_production_assets.py",
+      "params": {}
+    }
+  ]
+}
