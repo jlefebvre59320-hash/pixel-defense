@@ -91,7 +91,7 @@ def fbx_options(character):
 
 
 project_dir = os.path.abspath(unreal.Paths.project_dir())
-external_root = os.path.abspath(os.path.join(project_dir, "..", "ExternalAssets"))
+external_root = os.path.abspath(os.path.join(project_dir, "ExternalAssets"))
 kaykit_root = os.path.join(external_root, "KayKit")
 poly_root = os.path.join(external_root, "PolyHaven")
 if not os.path.isdir(kaykit_root):
