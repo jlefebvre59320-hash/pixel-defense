@@ -18,4 +18,5 @@ unreal/.vs/
 
 # Packs 3D téléchargés et imports Unreal reproductibles
 unreal/ExternalAssets/
-unreal/Content/ThirdParty/KayKit/
+unreal/Content/ThirdParty/
+unreal/Content/Art/Production/
