@@ -12,6 +12,9 @@ Source files are downloaded locally and are not committed to this repository.
 | Noon Grass HDRI | Poly Haven / Greg Zaal | CC0 | https://polyhaven.com/a/noon_grass |
 | Forest Ground 01 | Poly Haven | CC0 | https://polyhaven.com/a/forrest_ground_01 |
 | Grass Path 2 | Poly Haven | CC0 | https://polyhaven.com/a/grass_path_2 |
+| Leafy Grass | Poly Haven | CC0 | https://polyhaven.com/a/leafy_grass |
+| Grass Path 3 | Poly Haven | CC0 | https://polyhaven.com/a/grass_path_3 |
+| Kloofendal 48d Partly Cloudy Pure Sky | Poly Haven / Greg Zaal / Jarod Guest | CC0 | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 
 The KayKit repositories each carry their own `LICENSE.txt`. CC0 permits
 personal and commercial use without mandatory attribution. Crediting Kay
