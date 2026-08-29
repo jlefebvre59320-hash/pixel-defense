@@ -209,6 +209,13 @@ APDTower::APDTower()
     PrimaryActorTick.bCanEverTick=true;
     Visual=CreateDefaultSubobject<UStaticMeshComponent>("Visual");
     RootComponent=Visual;
+    Defender=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Defender"));
+    Defender->SetupAttachment(Visual);
+    Defender->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Defender->SetVisibility(false);
+    Defender->SetRelativeLocation(FVector(0,0,235));
+    Defender->SetRelativeRotation(FRotator(0,-90,0));
+    Defender->SetRelativeScale3D(FVector(.58f));
     Visual->SetCollisionProfileName("BlockAllDynamic");
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Shape(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     if(Shape.Succeeded()) Visual->SetStaticMesh(Shape.Object);
@@ -224,6 +231,37 @@ void APDTower::UseProductionMesh(FName MeshName)
     }
 }
 
+void APDTower::UseProductionDefender(FName MeshName)
+{
+    if(USkeletalMesh* Mesh=FindKayKitAsset<USkeletalMesh>(MeshName))
+    {
+        Defender->SetSkeletalMeshAsset(Mesh);
+        Defender->SetVisibility(true);
+        IdleAnimation=FindCharacterAnimation(Mesh,TEXT("idle"));
+        AttackAnimation=FindCharacterAnimation(Mesh,TEXT("attack"),TEXT("shoot"));
+        RestoreIdleAnimation();
+    }
+}
+
+void APDTower::RestoreIdleAnimation()
+{
+    AttackAnimationRemaining=0.f;
+    if(!IdleAnimation) return;
+    Defender->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+    Defender->SetAnimation(IdleAnimation);
+    Defender->Play(true);
+}
+
+void APDTower::PlayAttackAnimation()
+{
+    if(!AttackAnimation) return;
+    Defender->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+    Defender->SetAnimation(AttackAnimation);
+    Defender->Play(false);
+    AttackAnimationRemaining=FMath::Clamp(
+        AttackAnimation->GetPlayLength(),.25f,1.2f);
+}
+
 void APDTower::Configure(EPDTowerKind InKind)
 {
     Kind=InKind; SplashRadius=0.f; SlowFactor=1.f; SlowDuration=0.f; bIgnoreArmor=false;
@@ -231,22 +269,31 @@ void APDTower::Configure(EPDTowerKind InKind)
     {
         case EPDTowerKind::Archer:
             Range=1050.f; Damage=8.f; ShotsPerSecond=1.45f;
-            UseProductionMesh(FName(TEXT("building_archeryrange_green"))); break;
+            UseProductionMesh(FName(TEXT("building_archeryrange_green")));
+            UseProductionDefender(FName(TEXT("RogueHooded"))); break;
         case EPDTowerKind::Frost:
             Range=900.f; Damage=4.f; ShotsPerSecond=.75f; SlowFactor=.55f; SlowDuration=1.8f;
-            UseProductionMesh(FName(TEXT("building_tower_B_blue"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_B_blue")));
+            UseProductionDefender(FName(TEXT("Mage"))); break;
         case EPDTowerKind::Bombard:
             Range=1150.f; Damage=22.f; ShotsPerSecond=.42f; SplashRadius=320.f;
-            UseProductionMesh(FName(TEXT("building_tower_catapult_red"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_catapult_red")));
+            UseProductionDefender(FName(TEXT("Barbarian"))); break;
         case EPDTowerKind::Mage:
             Range=1000.f; Damage=17.f; ShotsPerSecond=.65f; bIgnoreArmor=true;
-            UseProductionMesh(FName(TEXT("building_tower_A_yellow"))); break;
+            UseProductionMesh(FName(TEXT("building_tower_A_yellow")));
+            UseProductionDefender(FName(TEXT("Knight"))); break;
     }
 }
 
 void APDTower::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    if(AttackAnimationRemaining>0.f)
+    {
+        AttackAnimationRemaining-=DeltaSeconds;
+        if(AttackAnimationRemaining<=0.f) RestoreIdleAnimation();
+    }
     Cooldown-=DeltaSeconds;
     if(Cooldown>0.f) return;
     APDEnemy* Target=nullptr; float Best=-1.f;
@@ -261,8 +308,11 @@ void APDTower::Tick(float DeltaSeconds)
     APDProjectile* Projectile=GetWorld()->SpawnActor<APDProjectile>(
         Muzzle,FRotator::ZeroRotator);
     if(Projectile)
+    {
         Projectile->Init(Target,Kind,Damage,bIgnoreArmor,SplashRadius,
                          SlowFactor,SlowDuration);
+        PlayAttackAnimation();
+    }
     Cooldown=1.f/ShotsPerSecond;
 }
 
