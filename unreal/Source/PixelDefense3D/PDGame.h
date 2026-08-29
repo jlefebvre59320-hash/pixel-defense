@@ -8,6 +8,7 @@
 #include "PDGame.generated.h"
 
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
 
 UENUM(BlueprintType)
 enum class EPDTowerKind : uint8
@@ -28,11 +29,13 @@ public:
     void InitEnemy(const TArray<FVector>& InPath, float InHP, float InSpeed,
                    int32 InArmor, int32 InReward, int32 InLeak);
     void ApplyHit(float Amount, bool bIgnoreArmor, float SlowFactor=1.f, float SlowDuration=0.f);
+    void UseProductionCharacter(FName MeshName);
     float GetProgress() const { return Progress; }
     int32 GetReward() const { return Reward; }
     int32 GetLeak() const { return Leak; }
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* CharacterVisual;
     UPROPERTY(BlueprintReadOnly) float HP=20.f;
     UPROPERTY(BlueprintReadOnly) float MaxHP=20.f;
 
@@ -58,6 +61,7 @@ public:
     APDTower();
     virtual void Tick(float DeltaSeconds) override;
     void Configure(EPDTowerKind InKind);
+    void UseProductionMesh(FName MeshName);
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
     UPROPERTY(BlueprintReadOnly) EPDTowerKind Kind=EPDTowerKind::Archer;
