@@ -34,10 +34,10 @@ def material(name):
     path = f"{MATERIAL_PATH}/{name}"
     existing = unreal.EditorAssetLibrary.load_asset(path)
     if existing:
-        unreal.MaterialEditingLibrary.delete_all_material_expressions(existing)
-        return existing
-    return unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        return existing, False
+    created = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         name, MATERIAL_PATH, unreal.Material, unreal.MaterialFactoryNew())
+    return created, True
 
 
 def constant_color(mat, color, x=-500, y=0):
@@ -55,7 +55,9 @@ def constant(mat, value, x=-500, y=180):
 
 
 def make_unlit(name, color, strength=1.0, additive=False):
-    mat = material(name)
+    mat, created = material(name)
+    if not created:
+        return mat
     safe_set(mat, "shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     if additive:
         safe_set(mat, "blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
@@ -79,7 +81,9 @@ def make_unlit(name, color, strength=1.0, additive=False):
 
 
 def make_pbr(name, asset_token, tint, tiling=6.0):
-    mat = material(name)
+    mat, created = material(name)
+    if not created:
+        return mat
     diffuse = find_asset("Texture2D", asset_token, "diffuse")
     normal = find_asset("Texture2D", asset_token, "normal")
     rough = find_asset("Texture2D", asset_token, "roughness")
@@ -128,7 +132,9 @@ def make_pbr(name, asset_token, tint, tiling=6.0):
 
 
 def make_translucent_unlit(name, color_value, opacity_value):
-    mat = material(name)
+    mat, created = material(name)
+    if not created:
+        return mat
     safe_set(mat, "shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     safe_set(mat, "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     safe_set(mat, "two_sided", True)
@@ -144,7 +150,9 @@ def make_translucent_unlit(name, color_value, opacity_value):
 
 
 def make_water():
-    mat = material("M_Water_River")
+    mat, created = material("M_Water_LivingValley")
+    if not created:
+        return mat
     safe_set(mat, "shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     safe_set(mat, "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     safe_set(mat, "two_sided", True)
@@ -173,8 +181,8 @@ def make_water():
 
 def build_materials():
     unreal.EditorAssetLibrary.make_directory(MATERIAL_PATH)
-    make_pbr("M_Ground_Forest", "leafy_grass", (.72, .83, .64, 1), 5.0)
-    make_pbr("M_Path_Dirt", "grass_path_3", (.78, .68, .53, 1), 3.2)
+    make_pbr("M_Ground_LivingValley", "leafy_grass", (.72, .83, .64, 1), 5.0)
+    make_pbr("M_Path_LivingValley", "grass_path_3", (.78, .68, .53, 1), 3.2)
     make_water()
     make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
     make_unlit("M_Bird", (.012, .016, .022, 1), .35)
