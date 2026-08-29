@@ -9,6 +9,7 @@
 
 class UStaticMeshComponent;
 class USkeletalMeshComponent;
+class UAnimSequence;
 
 UENUM(BlueprintType)
 enum class EPDTowerKind : uint8
@@ -66,8 +67,10 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     void Configure(EPDTowerKind InKind);
     void UseProductionMesh(FName MeshName);
+    void UseProductionDefender(FName MeshName);
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) UStaticMeshComponent* Visual;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* Defender;
     UPROPERTY(BlueprintReadOnly) EPDTowerKind Kind=EPDTowerKind::Archer;
 
 private:
@@ -79,6 +82,11 @@ private:
     float SlowDuration=0.f;
     bool bIgnoreArmor=false;
     float Cooldown=0.f;
+    float AttackAnimationRemaining=0.f;
+    UPROPERTY() UAnimSequence* IdleAnimation=nullptr;
+    UPROPERTY() UAnimSequence* AttackAnimation=nullptr;
+    void PlayAttackAnimation();
+    void RestoreIdleAnimation();
 };
 
 UCLASS()
