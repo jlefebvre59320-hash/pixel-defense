@@ -75,14 +75,26 @@ private:
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Path;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesA;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesB;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesC;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Shrubs;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Meadow;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Rocks;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Houses;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Walls;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Props;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Torches;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Fireflies;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Dust;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Birds;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Clouds;
     TArray<FVector> FireflyOrigins;
     TArray<float> FireflyPhases;
+    TArray<FVector> DustOrigins;
+    TArray<float> DustPhases;
+    TArray<FVector> BirdOrigins;
+    TArray<float> BirdPhases;
+    TArray<FVector> CloudOrigins;
+    TArray<float> CloudSpeeds;
 
     void BuildTerrain();
     void BuildForest();
