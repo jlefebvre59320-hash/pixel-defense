@@ -5,6 +5,7 @@
 #include "PDVisuals.generated.h"
 
 class APDEnemy;
+class ADirectionalLight;
 class UHierarchicalInstancedStaticMeshComponent;
 class UPointLightComponent;
 class USceneComponent;
@@ -95,6 +96,7 @@ private:
     TArray<float> BirdPhases;
     TArray<FVector> CloudOrigins;
     TArray<float> CloudSpeeds;
+    TWeakObjectPtr<ADirectionalLight> Sun;
 
     void BuildTerrain();
     void BuildForest();
