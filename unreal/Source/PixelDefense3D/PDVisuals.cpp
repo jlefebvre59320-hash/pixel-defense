@@ -266,6 +266,7 @@ APDEnvironment::APDEnvironment()
     TreesC=MakeHISM(TEXT("TreesC")); Shrubs=MakeHISM(TEXT("Shrubs"));
     Meadow=MakeHISM(TEXT("Meadow")); Rocks=MakeHISM(TEXT("Rocks"));
     Houses=MakeHISM(TEXT("Houses")); Walls=MakeHISM(TEXT("Walls"));
+    Gateways=MakeHISM(TEXT("Gateways"));
     Props=MakeHISM(TEXT("Props")); Torches=MakeHISM(TEXT("Torches"));
     Fireflies=MakeHISM(TEXT("Fireflies")); Dust=MakeHISM(TEXT("Dust"));
     Birds=MakeHISM(TEXT("Birds")); Clouds=MakeHISM(TEXT("Clouds"));
@@ -359,6 +360,44 @@ void APDEnvironment::BuildForest()
             P,Scale));
     }
 
+    // Two irregular forest belts close the mobile frame and hide the square board edge.
+    for(int32 Belt=0;Belt<2;++Belt)
+    {
+        const float Inset=Belt*220.f;
+        for(float X=-3900.f;X<=3900.f;X+=340.f)
+        {
+            for(float Side : {-1.f,1.f})
+            {
+                FVector P(X+Random.FRandRange(-90.f,90.f),
+                    Side*(2250.f-Inset)+Random.FRandRange(-75.f,75.f),12.f);
+                if(!IsClearOfRoute(P,520.f)) continue;
+                const int32 Pick=(FMath::FloorToInt((X+4100.f)/340.f)+Belt)%3;
+                UHierarchicalInstancedStaticMeshComponent* Layer=
+                    Pick==0?TreesA:(Pick==1?TreesB:TreesC);
+                const float Base=Pick==0?TreeAScale:(Pick==1?TreeBScale:TreeCScale);
+                Layer->AddInstance(FTransform(
+                    FRotator(0,Random.FRandRange(0.f,360.f),0),P,
+                    FVector(Base*Random.FRandRange(.82f,1.16f))));
+            }
+        }
+        for(float Y=-1900.f;Y<=1900.f;Y+=330.f)
+        {
+            for(float Side : {-1.f,1.f})
+            {
+                FVector P(Side*(3970.f-Inset)+Random.FRandRange(-70.f,70.f),
+                    Y+Random.FRandRange(-85.f,85.f),12.f);
+                if(!IsClearOfRoute(P,520.f)) continue;
+                const int32 Pick=(FMath::FloorToInt((Y+2100.f)/330.f)+Belt+1)%3;
+                UHierarchicalInstancedStaticMeshComponent* Layer=
+                    Pick==0?TreesA:(Pick==1?TreesB:TreesC);
+                const float Base=Pick==0?TreeAScale:(Pick==1?TreeBScale:TreeCScale);
+                Layer->AddInstance(FTransform(
+                    FRotator(0,Random.FRandRange(0.f,360.f),0),P,
+                    FVector(Base*Random.FRandRange(.80f,1.12f))));
+            }
+        }
+    }
+
     // Low vegetation breaks the empty ground without rebuilding a wall of pines.
     if(Shrub)
     {
@@ -397,16 +436,21 @@ void APDEnvironment::BuildVillage()
     UStaticMesh* House=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_home_A_blue")));
     UStaticMesh* Wall=FindProductionAsset<UStaticMesh>(FName(TEXT("wall_straight")));
+    UStaticMesh* Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("wall_gate")));
+    if(!Gate) Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("gate")));
+    if(!Gate) Gate=Wall;
     UStaticMesh* Crate=FindProductionAsset<UStaticMesh>(FName(TEXT("crate_A_big")));
     UStaticMesh* Torch=FindProductionAsset<UStaticMesh>(FName(TEXT("torch_lit")));
     UStaticMesh* CastleMesh=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_castle_blue")));
     Houses->SetStaticMesh(House); Walls->SetStaticMesh(Wall);
+    Gateways->SetStaticMesh(Gate);
     Props->SetStaticMesh(Crate); Torches->SetStaticMesh(Torch);
     Castle->SetStaticMesh(CastleMesh);
 
     const float HouseScale=UniformWidthScale(House,620.f);
     const float WallScale=UniformWidthScale(Wall,520.f);
+    const float GateScale=UniformWidthScale(Gate,720.f);
     const float PropScale=UniformWidthScale(Crate,120.f);
     const float TorchScale=UniformHeightScale(Torch,190.f);
     const float CastleScale=UniformWidthScale(CastleMesh,1050.f);
@@ -427,6 +471,13 @@ void APDEnvironment::BuildVillage()
         Walls->AddInstance(FTransform(FRotator(0,90,0),
             FVector(3300,230-Index*300,10),FVector(WallScale)));
     }
+
+    // Readable fantasy portals make the enemy entrance and castle exit intentional.
+    Gateways->AddInstance(FTransform(FRotator(0,44.f,0),
+        FVector(-3220,-1320,10),FVector(GateScale)));
+    Gateways->AddInstance(FTransform(FRotator(0,36.f,0),
+        FVector(3130,860,10),FVector(GateScale)));
+
     FRandomStream Random(77);
     for(int32 Index=0;Index<12;++Index)
     {
@@ -437,7 +488,8 @@ void APDEnvironment::BuildVillage()
     }
 
     const FVector TorchSpots[]={
-        {-3050,-1180,35},{-250,-100,35},{1850,140,35},{3130,820,35}
+        {-3340,-1500,35},{-3060,-1160,35},{-250,-100,35},
+        {1850,140,35},{3010,680,35},{3250,1010,35}
     };
     for(const FVector& P:TorchSpots)
     {
@@ -449,6 +501,7 @@ void APDEnvironment::BuildVillage()
         Light->SetLightColor(FLinearColor(1.f,.38f,.08f));
         Light->SetIntensity(1700.f); Light->SetAttenuationRadius(460.f);
         Light->SetCastShadows(false);
+        TorchLights.Add(Light);
     }
 }
 
@@ -457,7 +510,8 @@ void APDEnvironment::BuildAmbientFX()
     UStaticMesh* Sphere=LoadObject<UStaticMesh>(
         nullptr,TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     UStaticMesh* CloudMesh=FindProductionAsset<UStaticMesh>(FName(TEXT("cloud_A")));
-    // Volumetric clouds provide the sky. Never fall back to giant sphere clouds.
+    // A restrained flattened-sphere fallback keeps the sky alive on every pack variant.
+    if(!CloudMesh) CloudMesh=Sphere;
 
     Fireflies->SetStaticMesh(Sphere);
     Dust->SetStaticMesh(Sphere);
@@ -497,14 +551,14 @@ void APDEnvironment::BuildAmbientFX()
     }
     if(CloudMesh)
     {
-        for(int32 Index=0;Index<4;++Index)
+        for(int32 Index=0;Index<7;++Index)
         {
-            const FVector Origin(-4300.f+Index*2400.f,
-                Random.FRandRange(900,2200),Random.FRandRange(1500,1850));
+            const FVector Origin(-4400.f+Index*1450.f,
+                Random.FRandRange(900,2400),Random.FRandRange(1350,1750));
             CloudOrigins.Add(Origin); CloudSpeeds.Add(Random.FRandRange(14.f,24.f));
             const float Scale=Random.FRandRange(.65f,1.0f);
             Clouds->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-                Origin,FVector(5.2f*Scale,2.8f*Scale,.75f*Scale)));
+                Origin,FVector(3.4f*Scale,1.8f*Scale,.42f*Scale)));
         }
     }
 }
@@ -558,11 +612,17 @@ void APDEnvironment::Tick(float DeltaSeconds)
         FVector P=CloudOrigins[Index];
         P.X=FMath::Fmod(P.X+Time*CloudSpeeds[Index]+4500.f,9000.f)-4500.f;
         P.Z+=FMath::Sin(Time*.08f+Index)*35.f;
-        const float Scale=.82f+.09f*(Index%4);
+        const float Scale=.78f+.08f*(Index%4);
         Clouds->UpdateInstanceTransform(Index,
             FTransform(FRotator(0,Index*37.f,0),P,
-                FVector(8.5f*Scale,4.2f*Scale,1.15f*Scale)),
+                FVector(3.6f*Scale,1.9f*Scale,.46f*Scale)),
             false,false,true);
+    }
+    for(int32 Index=0;Index<TorchLights.Num();++Index)
+    {
+        if(TorchLights[Index].IsValid())
+            TorchLights[Index]->SetIntensity(
+                1520.f+FMath::Sin(Time*7.2f+Index*1.73f)*230.f);
     }
     if(FireflyOrigins.Num()) Fireflies->MarkRenderStateDirty();
     if(DustOrigins.Num()) Dust->MarkRenderStateDirty();
