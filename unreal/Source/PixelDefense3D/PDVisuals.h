@@ -55,7 +55,7 @@ private:
     UPROPERTY() UStaticMeshComponent* Visual;
     UPROPERTY() UPointLightComponent* Glow;
     float Age=0.f;
-    float Duration=.45f;
+    float Duration=.62f;
     float FinalScale=2.f;
 };
 
