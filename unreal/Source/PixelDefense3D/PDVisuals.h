@@ -82,6 +82,7 @@ private:
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Rocks;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Houses;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Walls;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Gateways;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Props;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Torches;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Fireflies;
@@ -96,6 +97,7 @@ private:
     TArray<float> BirdPhases;
     TArray<FVector> CloudOrigins;
     TArray<float> CloudSpeeds;
+    TArray<TWeakObjectPtr<UPointLightComponent>> TorchLights;
     TWeakObjectPtr<ADirectionalLight> Sun;
 
     void BuildTerrain();
