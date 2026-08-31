@@ -21,6 +21,7 @@ boot_splash/bg_color=Color(0.055, 0.063, 0.125, 1)
 Art="*res://scripts/art.gd"
 Sfx="*res://scripts/sfx.gd"
 SaveData="*res://scripts/save_data.gd"
+Mobile="*res://scripts/mobile.gd"
 
 [display]
 
