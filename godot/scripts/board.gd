@@ -1,10 +1,9 @@
 extends Node2D
 ## Le plateau : la vue du jeu.
 ##
-## Tout ce qui est ici lit la simulation et ne la modifie jamais. Le repère
-## est le « pixel d'art » (une case = 16 unités) ; c'est le nœud lui-même qui
-## est mis à l'échelle pour remplir la place laissée par l'interface — d'où
-## des pixels carrés à toutes les tailles d'écran.
+## Passe 2.5D mobile : le gameplay reste strictement 2D, mais les entités ont
+## maintenant une séparation claire entre « sol » et « volume » grâce aux
+## ombres aplaties, au léger flottement vertical et à des couches de profondeur.
 
 const Cfg := preload("res://scripts/config.gd")
 const MapD := preload("res://scripts/map_data.gd")
@@ -17,20 +16,34 @@ var sim: RefCounted = null
 var view_scale := 3.0
 
 const BOARD := Vector2(Cfg.COLS * Cfg.ART, Cfg.ROWS * Cfg.ART)
+const SHADOW := Color(0.04, 0.05, 0.08, 0.42)
 
-var _enemy_nodes := {}     ## id de l'ennemi -> Node2D
-var _tower_nodes := {}     ## id de la tour  -> Node2D
+var _enemy_nodes := {}
+var _tower_nodes := {}
 
 
 func _ready() -> void:
 	terrain.texture = Art.terrain()
 	terrain.centered = false
 
-	# La base à défendre fait partie du décor vivant : on la pose une fois.
+	# La base reçoit elle aussi une ombre aplatie : même en pixel art, ce petit
+	# décalage suffit à la détacher du sol et donne immédiatement plus de volume.
+	var core_root := Node2D.new()
+	core_root.position = MapD.CORE_POINT * Cfg.ART
+	core_root.z_index = 2
+
+	var core_shadow := Sprite2D.new()
+	core_shadow.texture = Art.tinted("core", SHADOW)
+	core_shadow.position = Vector2(2.0, 4.0)
+	core_shadow.scale = Vector2(1.0, 0.48)
+	core_shadow.z_index = -2
+	core_root.add_child(core_shadow)
+
 	var core := Sprite2D.new()
 	core.texture = Art.texture("core")
-	core.position = MapD.CORE_POINT * Cfg.ART
-	entities.add_child(core)
+	core.position = Vector2(0, -1.0)
+	core_root.add_child(core)
+	entities.add_child(core_root)
 
 
 func attach(s: RefCounted) -> void:
@@ -42,7 +55,6 @@ func attach(s: RefCounted) -> void:
 	s.tower_upgraded.connect(_on_tower_upgraded)
 
 
-## Remet le plateau à zéro entre deux parties.
 func clear() -> void:
 	for id in _enemy_nodes:
 		_enemy_nodes[id].queue_free()
@@ -53,16 +65,8 @@ func clear() -> void:
 	fx.clear()
 
 
-## Cadre le plateau dans la place disponible. L'échelle avance par demi-pas :
-## en dessous, l'arrondi laisserait de larges bandes mortes ; au-dessus, les
-## pixels d'art n'auraient plus tous la même taille.
 func fit(rect: Rect2) -> void:
 	var raw: float = minf(rect.size.x / BOARD.x, rect.size.y / BOARD.y)
-
-	# L'interface est mise à l'échelle par Godot (mode « canvas_items ») : un
-	# grossissement rond ici donnerait un grossissement bancal à l'écran, avec
-	# des pixels d'art de 3 puis 4 pixels d'appareil. On raisonne donc en
-	# pixels d'écran réels, puis on repasse dans le repère du canevas.
 	var stretch: float = maxf(0.01, get_viewport().get_screen_transform().get_scale().x)
 	var steps: float = floorf(raw * stretch * 2.0) / 2.0
 	view_scale = maxf(0.5, steps / stretch)
@@ -70,7 +74,6 @@ func fit(rect: Rect2) -> void:
 	position = (rect.position + (rect.size - BOARD * view_scale) / 2.0).round()
 
 
-## Case visée par un appui, en coordonnées d'écran.
 func tile_at(screen_pos: Vector2) -> Vector2i:
 	var local := (screen_pos - position) / view_scale / float(Cfg.ART)
 	return Vector2i(floori(local.x), floori(local.y))
@@ -80,19 +83,31 @@ func _process(_delta: float) -> void:
 	if sim == null:
 		return
 
-	# Ennemis : la vue suit la simulation, elle ne décide de rien.
+	var now := Time.get_ticks_msec() / 1000.0
+
 	for e in sim.enemies:
 		var node: Node2D = _enemy_nodes.get(e.id)
 		if node == null:
 			continue
+
 		node.position = e.pos * Cfg.ART
-		if e.def["fly"]:
-			# Léger flottement : ce qui vole ne doit pas sembler posé au sol.
-			node.position.y -= 1.5 + sin(Time.get_ticks_msec() / 180.0 + e.id) * 1.5
+		# Le z suit grossièrement la hauteur écran : deux unités proches ne se
+		# superposent plus de manière « plate ».
+		node.z_index = 4 + int(e.pos.y * 2.0)
 
 		var body: Sprite2D = node.get_node("Body")
 		var tint: Sprite2D = node.get_node("Tint")
+		var shadow: Sprite2D = node.get_node("Shadow")
+		var flying: bool = e.def["fly"]
 		var frozen: bool = e.slow_until > sim.time
+
+		var bob := sin(now * (3.5 if flying else 5.0) + float(e.id) * 0.7)
+		body.position.y = (-4.0 - bob * 1.4) if flying else (-0.7 - absf(bob) * 0.35)
+		tint.position = body.position
+		# L'ombre reste au sol : le décalage entre ombre et sprite crée la
+		# sensation de hauteur, particulièrement lisible pour les drones.
+		shadow.position = Vector2(2.0, 4.0 if flying else 2.8)
+		shadow.modulate.a = 0.34 if flying else 0.42
 
 		if e.flash > 0.0:
 			tint.texture = Art.tinted(e.key, Color.WHITE)
@@ -106,8 +121,6 @@ func _process(_delta: float) -> void:
 			tint.visible = false
 		body.visible = true
 
-	# Ennemis disparus (morts ou arrivés) : on nettoie ce que la simulation
-	# a retiré de sa liste.
 	var alive := {}
 	for e in sim.enemies:
 		alive[e.id] = true
@@ -116,22 +129,34 @@ func _process(_delta: float) -> void:
 			_enemy_nodes[id].queue_free()
 			_enemy_nodes.erase(id)
 
-	# Tours : seule la tête tourne.
 	for t in sim.towers:
 		var node: Node2D = _tower_nodes.get(t.id)
 		if node == null:
 			continue
+		node.z_index = 3 + int(t.pos.y * 2.0)
 		var head: Sprite2D = node.get_node("Head")
+		var glow: Sprite2D = node.get_node("Glow")
 		head.rotation = t.angle + PI / 2.0
-		# Recul : la tête recule d'un pixel dans l'axe du tir, le temps d'un
-		# battement de cil. C'est ce qui donne du poids au coup.
+		glow.rotation = head.rotation
+
 		var recoil: float = 2.0 * minf(1.0, t.flash / 0.09) if t.flash > 0.0 else 0.0
-		head.position = Vector2(-cos(t.angle), -sin(t.angle)) * recoil + Vector2(0, -2)
+		var idle := sin(now * 2.3 + float(t.id) * 0.37) * 0.25
+		head.position = Vector2(-cos(t.angle), -sin(t.angle)) * recoil + Vector2(0, -2.5 + idle)
+		glow.position = head.position
+		glow.modulate.a = 0.30 + minf(0.45, t.flash * 5.0)
 
 
 func _on_enemy_spawned(e) -> void:
 	var node := Node2D.new()
 	node.position = e.pos * Cfg.ART
+
+	var shadow := Sprite2D.new()
+	shadow.name = "Shadow"
+	shadow.texture = Art.tinted(e.key, SHADOW)
+	shadow.scale = Vector2(float(e.def["scale"]) * 0.95, float(e.def["scale"]) * 0.42)
+	shadow.position = Vector2(2.0, 3.0)
+	shadow.z_index = -2
+	node.add_child(shadow)
 
 	var body := Sprite2D.new()
 	body.name = "Body"
@@ -152,17 +177,37 @@ func _on_enemy_spawned(e) -> void:
 func _on_tower_built(t) -> void:
 	var node := Node2D.new()
 	node.position = t.pos * Cfg.ART
-	node.z_index = 1
+
+	var shadow := Sprite2D.new()
+	shadow.name = "Shadow"
+	shadow.texture = Art.tinted("head_" + t.type, SHADOW)
+	shadow.scale = Vector2(1.05, 0.38)
+	shadow.position = Vector2(2.2, 4.2)
+	shadow.z_index = -3
+	node.add_child(shadow)
 
 	var base := Sprite2D.new()
 	base.name = "Base"
 	base.texture = Art.base_texture()
+	base.position = Vector2(0, 1.0)
 	node.add_child(base)
+
+	# Un halo très discret derrière la tête donne une lecture « énergie » sans
+	# shader coûteux. Il réutilise le sprite déjà en cache et reste pixel-perfect.
+	var glow := Sprite2D.new()
+	glow.name = "Glow"
+	glow.texture = Art.tinted("head_" + t.type, Cfg.TOWERS[t.type]["color"])
+	glow.position = Vector2(0, -2.5)
+	glow.scale = Vector2.ONE * 1.08
+	glow.modulate.a = 0.30
+	glow.z_index = 0
+	node.add_child(glow)
 
 	var head := Sprite2D.new()
 	head.name = "Head"
 	head.texture = Art.texture("head_" + t.type)
-	head.position = Vector2(0, -2)
+	head.position = Vector2(0, -2.5)
+	head.z_index = 1
 	node.add_child(head)
 
 	entities.add_child(node)
@@ -176,5 +221,14 @@ func _on_tower_sold(t) -> void:
 		_tower_nodes.erase(t.id)
 
 
-func _on_tower_upgraded(_t) -> void:
-	pass   # le niveau se lit aux pastilles d'or, dessinées par la couche d'effets
+func _on_tower_upgraded(t) -> void:
+	var node: Node2D = _tower_nodes.get(t.id)
+	if node == null:
+		return
+	# La montée de niveau gagne légèrement en présence visuelle, sans changer
+	# la hitbox ni la portée réelle.
+	var head: Sprite2D = node.get_node("Head")
+	var glow: Sprite2D = node.get_node("Glow")
+	var bonus := 1.0 + float(t.level - 1) * 0.035
+	head.scale = Vector2.ONE * bonus
+	glow.scale = Vector2.ONE * (1.08 + float(t.level - 1) * 0.045)
