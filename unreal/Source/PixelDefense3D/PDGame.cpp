@@ -463,10 +463,10 @@ void APDGameMode::CreateVillagers()
 void APDGameMode::CreateCamera()
 {
     ACameraActor* Camera=GetWorld()->SpawnActor<ACameraActor>(
-        FVector(0,-7000,4100),FRotator(-31,90,0));
+        FVector(0,-6250,3550),FRotator(-30,90,0));
     if(Camera && Camera->GetCameraComponent())
     {
-        Camera->GetCameraComponent()->SetFieldOfView(56.f);
+        Camera->GetCameraComponent()->SetFieldOfView(50.f);
         Camera->GetCameraComponent()->PostProcessBlendWeight=.10f;
     }
     if(APlayerController* PC=UGameplayStatics::GetPlayerController(this,0))
@@ -665,8 +665,8 @@ void APDPlayerController::ZoomIn()
     if(AActor* Camera=GetViewTarget())
     {
         FVector P=Camera->GetActorLocation();
-        P.Z=FMath::Clamp(P.Z-260.f,3300.f,5000.f);
-        P.Y=FMath::Clamp(P.Y+150.f,-7600.f,-5900.f);
+        P.Z=FMath::Clamp(P.Z-240.f,2850.f,4500.f);
+        P.Y=FMath::Clamp(P.Y+140.f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -676,8 +676,8 @@ void APDPlayerController::ZoomOut()
     if(AActor* Camera=GetViewTarget())
     {
         FVector P=Camera->GetActorLocation();
-        P.Z=FMath::Clamp(P.Z+260.f,3300.f,5000.f);
-        P.Y=FMath::Clamp(P.Y-150.f,-7600.f,-5900.f);
+        P.Z=FMath::Clamp(P.Z+240.f,2850.f,4500.f);
+        P.Y=FMath::Clamp(P.Y-140.f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -690,7 +690,7 @@ void APDPlayerController::PanCamera(const FVector2D& ScreenDelta)
     {
         FVector P=Camera->GetActorLocation();
         P.X=FMath::Clamp(P.X-ScreenDelta.X*2.15f,-1450.f,1450.f);
-        P.Y=FMath::Clamp(P.Y+ScreenDelta.Y*1.75f,-7600.f,-5900.f);
+        P.Y=FMath::Clamp(P.Y+ScreenDelta.Y*1.75f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -853,15 +853,15 @@ void APDHUD::DrawHUD()
         return;
     }
 
-    DrawPanel(22,20,500,76,Ink);
-    DrawPanel(22,20,500,4,Gold);
+    DrawPanel(22,20,560,86,Ink);
+    DrawPanel(22,20,560,5,Gold);
     DrawLabel(FString::Printf(TEXT("COEURS  %d"),GM->Lives),42,40,
-              GM->Lives<=5?FLinearColor(.98f,.24f,.22f):Cream,1.05f);
-    DrawLabel(FString::Printf(TEXT("OR  %d"),GM->Gold),174,40,Gold,1.05f);
+              GM->Lives<=5?FLinearColor(.98f,.24f,.22f):Cream,1.16f);
+    DrawLabel(FString::Printf(TEXT("OR  %d"),GM->Gold),186,40,Gold,1.16f);
     DrawLabel(FString::Printf(TEXT("VAGUE  %d/%d"),GM->Wave,GM->TotalWaves),
-              286,40,Cream,1.05f);
+              310,40,Cream,1.16f);
     DrawLabel(FString::Printf(TEXT("TOURS  %d"),GM->GetBuiltTowerCount()),
-              420,40,FLinearColor(.55f,.88f,1.f),.9f);
+              470,42,FLinearColor(.55f,.88f,1.f),.96f);
 
     const float ButtonY=20.f;
     DrawButton(W-300,ButtonY,102,76,GM->IsWaveActive()?InkSoft:
