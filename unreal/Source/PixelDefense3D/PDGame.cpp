@@ -12,6 +12,7 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/Texture2D.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
@@ -77,6 +78,27 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
     }
     return nullptr;
 }
+}
+
+static UTexture2D* FindKenneyUITexture(const TCHAR* Token)
+{
+    FAssetRegistryModule& Module=
+        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    TArray<FString> PathsToScan;
+    PathsToScan.Add(TEXT("/Game/ThirdParty/Kenney"));
+    Module.Get().ScanPathsSynchronous(PathsToScan,false);
+    TArray<FAssetData> Assets;
+    Module.Get().GetAssetsByPath(
+        FName(TEXT("/Game/ThirdParty/Kenney")),Assets,true,false);
+    const FString Wanted(Token);
+    for(const FAssetData& Asset:Assets)
+    {
+        if(Asset.AssetClassPath!=UTexture2D::StaticClass()->GetClassPathName())
+            continue;
+        if(Asset.AssetName.ToString().ToLower().Contains(Wanted))
+            return Cast<UTexture2D>(Asset.GetAsset());
+    }
+    return nullptr;
 }
 
 APDVillager::APDVillager()
@@ -772,9 +794,30 @@ void APDPlayerController::TryBuildAtScreen(float X,float Y)
 
 void APDHUD::DrawPanel(float X,float Y,float W,float H,const FLinearColor& Color)
 {
-    FCanvasTileItem Tile(FVector2D(X,Y),FVector2D(W,H),Color);
-    Tile.BlendMode=SE_BLEND_Translucent;
-    Canvas->DrawItem(Tile);
+    FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
+    Base.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Base);
+    if(PanelTexture&&W>105.f&&H>48.f)
+    {
+        FCanvasTileItem Art(FVector2D(X,Y),PanelTexture->GetResource(),
+            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.38f));
+        Art.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Art);
+    }
+}
+
+void APDHUD::DrawButton(float X,float Y,float W,float H,const FLinearColor& Color)
+{
+    FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
+    Base.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Base);
+    if(ButtonTexture)
+    {
+        FCanvasTileItem Art(FVector2D(X,Y),ButtonTexture->GetResource(),
+            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.82f));
+        Art.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Art);
+    }
 }
 
 void APDHUD::DrawLabel(const FString& Text,float X,float Y,
@@ -797,6 +840,8 @@ void APDHUD::DrawHUD()
     const FLinearColor Gold(1.f,.72f,.20f,1.f);
     const FLinearColor Cream(1.f,.95f,.80f,1.f);
     const FLinearColor Green(.25f,.90f,.48f,1.f);
+    if(!PanelTexture) PanelTexture=FindKenneyUITexture(TEXT("panel"));
+    if(!ButtonTexture) ButtonTexture=FindKenneyUITexture(TEXT("button"));
 
     if(!GM->IsGameStarted())
     {
@@ -807,7 +852,7 @@ void APDHUD::DrawHUD()
         DrawLabel(TEXT("LES GARDIENS DE LA VALLEE"),W*.355f,H*.345f,Gold,1.0f);
         DrawLabel(TEXT("Protegez le royaume pendant 20 vagues"),W*.35f,H*.415f,
                   FLinearColor(.78f,.84f,.88f,1.f),.9f);
-        DrawPanel(W*.34f,H*.55f,W*.32f,H*.15f,FLinearColor(.08f,.42f,.24f,.98f));
+        DrawButton(W*.34f,H*.55f,W*.32f,H*.15f,FLinearColor(.10f,.38f,.20f,.98f));
         DrawPanel(W*.34f,H*.55f,W*.32f,5.f,Green);
         DrawLabel(TEXT("JOUER"),W*.455f,H*.592f,FLinearColor::White,1.5f);
         DrawLabel(TEXT("ENTREE / ESPACE"),W*.43f,H*.715f,
@@ -826,13 +871,13 @@ void APDHUD::DrawHUD()
               420,40,FLinearColor(.55f,.88f,1.f),.9f);
 
     const float ButtonY=20.f;
-    DrawPanel(W-300,ButtonY,102,76,GM->IsWaveActive()?InkSoft:
+    DrawButton(W-300,ButtonY,102,76,GM->IsWaveActive()?InkSoft:
               FLinearColor(.12f,.46f,.25f,.94f));
     DrawLabel(GM->IsWaveActive()?TEXT("EN COURS"):TEXT("VAGUE"),
               W-282,48,Green,.82f);
-    DrawPanel(W-190,ButtonY,90,76,Ink);
+    DrawButton(W-190,ButtonY,90,76,Ink);
     DrawLabel(FString::Printf(TEXT("x%d"),PC->SpeedIndex+1),W-161,43,Gold,1.25f);
-    DrawPanel(W-92,ButtonY,70,76,Ink);
+    DrawButton(W-92,ButtonY,70,76,Ink);
     DrawLabel(TEXT("II"),W-70,43,Cream,1.2f);
 
     const FString Names[]={TEXT("ARCHERS"),TEXT("GIVRE"),TEXT("BOMBARDE"),TEXT("ARCANES")};
@@ -868,7 +913,7 @@ void APDHUD::DrawHUD()
         DrawLabel(TEXT("PAUSE"),W*.445f,H*.355f,Cream,1.8f);
         DrawLabel(TEXT("La vallee vous attend"),W*.405f,H*.455f,
                   FLinearColor(.74f,.80f,.84f,1.f),.85f);
-        DrawPanel(W*.37f,H*.54f,W*.26f,H*.14f,FLinearColor(.08f,.42f,.24f,.98f));
+        DrawButton(W*.37f,H*.54f,W*.26f,H*.14f,FLinearColor(.10f,.38f,.20f,.98f));
         DrawLabel(TEXT("REPRENDRE"),W*.435f,H*.585f,FLinearColor::White,1.1f);
     }
 
