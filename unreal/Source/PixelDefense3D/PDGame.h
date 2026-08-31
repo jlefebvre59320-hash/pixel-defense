@@ -112,6 +112,13 @@ public:
     void EnemyKilled(APDEnemy* Enemy);
     void EnemyLeaked(APDEnemy* Enemy);
     void StartNextWave();
+    void StartGame();
+    void TogglePauseMenu();
+
+    bool IsGameStarted() const { return bGameStarted; }
+    bool IsPauseMenuOpen() const { return bPauseMenuOpen; }
+    bool IsWaveActive() const { return bWaveActive; }
+    int32 GetBuiltTowerCount() const { return BuiltTowerCount; }
 
     UPROPERTY(BlueprintReadOnly) int32 Gold=130;
     UPROPERTY(BlueprintReadOnly) int32 Lives=15;
@@ -119,6 +126,7 @@ public:
     UPROPERTY(BlueprintReadOnly) int32 TotalWaves=20;
     UPROPERTY(BlueprintReadOnly) bool bWon=false;
     UPROPERTY(BlueprintReadOnly) bool bGameOver=false;
+    UPROPERTY(BlueprintReadOnly) int32 BuiltTowerCount=0;
 
 private:
     TArray<FVector> EnemyPath;
@@ -127,6 +135,8 @@ private:
     float SpawnCooldown=0.f;
     float BreakCooldown=1.f;
     bool bWaveActive=false;
+    bool bGameStarted=false;
+    bool bPauseMenuOpen=false;
     void SpawnEnemy();
     void CreateBuildPads();
     void CreateCamera();
@@ -151,8 +161,22 @@ private:
     void SelectMage();
     void CycleSpeed();
     void CallWave();
+    void StartGame();
+    void TogglePause();
+    void ZoomIn();
+    void ZoomOut();
     void TryBuildAtScreen(float X,float Y);
-    void OnTouch(ETouchIndex::Type FingerIndex,FVector Location);
+    bool HandleScreenAction(float X,float Y);
+    void PanCamera(const FVector2D& ScreenDelta);
+    void OnTouchPressed(ETouchIndex::Type FingerIndex,FVector Location);
+    void OnTouchReleased(ETouchIndex::Type FingerIndex,FVector Location);
+
+    bool bTouchActive=false;
+    bool bTouchDragged=false;
+    bool bMouseDragging=false;
+    FVector2D TouchStartPosition=FVector2D::ZeroVector;
+    FVector2D LastTouchPosition=FVector2D::ZeroVector;
+    FVector2D LastMousePosition=FVector2D::ZeroVector;
 };
 
 UCLASS()
@@ -161,4 +185,9 @@ class PIXELDEFENSE3D_API APDHUD : public AHUD
     GENERATED_BODY()
 public:
     virtual void DrawHUD() override;
+
+private:
+    void DrawPanel(float X,float Y,float W,float H,const FLinearColor& Color);
+    void DrawLabel(const FString& Text,float X,float Y,const FLinearColor& Color,
+                   float Scale=1.f);
 };
