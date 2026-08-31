@@ -80,7 +80,7 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
 }
 }
 
-static APDVillager::APDVillager()
+APDVillager::APDVillager()
 {
     PrimaryActorTick.bCanEverTick=true;
     CharacterVisual=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterVisual"));
