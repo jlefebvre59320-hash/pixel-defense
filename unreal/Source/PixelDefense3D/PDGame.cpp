@@ -416,7 +416,7 @@ void APDGameMode::StartGame()
     if(bGameStarted) return;
     bGameStarted=true;
     bPauseMenuOpen=false;
-    BreakCooldown=.35f;
+    BreakCooldown=25.f;
 }
 
 void APDGameMode::TogglePauseMenu()
@@ -872,6 +872,17 @@ void APDHUD::DrawHUD()
     DrawLabel(FString::Printf(TEXT("x%d"),PC->SpeedIndex+1),W-161,43,Gold,1.25f);
     DrawButton(W-92,ButtonY,70,76,Ink);
     DrawLabel(TEXT("II"),W-70,43,Cream,1.2f);
+
+    if(GM->IsPreparing())
+    {
+        const int32 Seconds=FMath::Max(0,FMath::CeilToInt(GM->GetWaveCountdown()));
+        DrawPanel(W*.34f,112.f,W*.32f,78.f,Ink);
+        DrawPanel(W*.34f,112.f,W*.32f,4.f,Gold);
+        DrawLabel(FString::Printf(TEXT("PREPARATION : %d s"),Seconds),
+                  W*.405f,132.f,Cream,1.05f);
+        DrawLabel(TEXT("Placez vos tours - VAGUE pour lancer"),
+                  W*.385f,161.f,FLinearColor(.68f,.86f,.72f,1.f),.72f);
+    }
 
     const FString Names[]={TEXT("ARCHERS"),TEXT("GIVRE"),TEXT("BOMBARDE"),TEXT("ARCANES")};
     const FString Costs[]={TEXT("40 OR"),TEXT("60 OR"),TEXT("80 OR"),TEXT("130 OR")};
