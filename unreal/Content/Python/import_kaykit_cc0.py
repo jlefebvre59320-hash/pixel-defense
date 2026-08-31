@@ -94,6 +94,7 @@ project_dir = os.path.abspath(unreal.Paths.project_dir())
 external_root = os.path.abspath(os.path.join(project_dir, "ExternalAssets"))
 kaykit_root = os.path.join(external_root, "KayKit")
 poly_root = os.path.join(external_root, "PolyHaven")
+kenney_ui_root = os.path.join(external_root, "Kenney", "UIAdventure")
 if not os.path.isdir(kaykit_root):
     raise RuntimeError("Packs absents: lance bash tools/assets/fetch_kaykit_cc0.sh")
 
@@ -132,6 +133,17 @@ if os.path.isdir(poly_root):
 else:
     unreal.log_warning("Poly Haven absent: matériaux PBR de secours utilisés.")
 
+if os.path.isdir(kenney_ui_root):
+    for root, directories, filenames in os.walk(kenney_ui_root):
+        directories[:] = [item for item in directories
+                           if not item.startswith(".") and item.lower() not in SKIP_PARTS]
+        for filename in sorted(filenames):
+            source = os.path.join(root, filename)
+            if os.path.splitext(filename)[1].lower() == ".png":
+                sources.append(("texture", "KenneyUI", kenney_ui_root, source))
+else:
+    unreal.log_warning("Kenney UI absent: interface vectorielle de secours utilisée.")
+
 # Textures first, then props, then animated characters.
 sources.sort(key=lambda item: (
     0 if item[0] == "texture" else (2 if is_character(item[3]) else 1),
@@ -143,8 +155,12 @@ task_meta = []
 for source_type, pack, pack_root, source in sources:
     task = unreal.AssetImportTask()
     task.set_editor_property("filename", source)
-    base = ("/Game/ThirdParty/PolyHaven" if pack == "PolyHaven"
-            else f"/Game/ThirdParty/KayKit/{pack}")
+    if pack == "PolyHaven":
+        base = "/Game/ThirdParty/PolyHaven"
+    elif pack == "KenneyUI":
+        base = "/Game/ThirdParty/Kenney/UIAdventure"
+    else:
+        base = f"/Game/ThirdParty/KayKit/{pack}"
     task.set_editor_property("destination_path",
                              destination_for(base, source, pack_root))
     task.set_editor_property("automated", True)
@@ -178,7 +194,7 @@ unreal.EditorAssetLibrary.save_directory(
 
 counts = collections.Counter()
 for path in imported_paths:
-    for pack in PACKS + ("PolyHaven",):
+    for pack in PACKS + ("PolyHaven", "KenneyUI"):
         if f"/{pack}/" in path:
             counts[pack] += 1
             break
