@@ -23,6 +23,14 @@ AssetType* FindProductionAsset(const FName RequestedName)
         if(Cached->IsValid()) return Cached->Get();
     FAssetRegistryModule& Module =
         FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    static bool bProductionAssetsScanned=false;
+    if(!bProductionAssetsScanned)
+    {
+        TArray<FString> PathsToScan;
+        PathsToScan.Add(TEXT("/Game/ThirdParty"));
+        Module.Get().ScanPathsSynchronous(PathsToScan,false);
+        bProductionAssetsScanned=true;
+    }
     TArray<FAssetData> Assets;
     Module.Get().GetAssetsByPath(
         FName(TEXT("/Game/ThirdParty")), Assets, true, false);
