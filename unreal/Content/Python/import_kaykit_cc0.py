@@ -12,6 +12,7 @@ import re
 import unreal
 
 PACKS = ("MedievalHexagon", "DungeonRemastered", "Adventurers", "Skeletons")
+QUATERNIUS_PACKS = ("StylizedNatureMegaKit", "MedievalVillageMegaKit")
 MODEL_EXTENSIONS = {".fbx"}
 TEXTURE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tga", ".hdr", ".exr"}
 SKIP_PARTS = {".git", ".github", "screenshots", "samples", "documentation"}
@@ -26,6 +27,12 @@ DUNGEON_KEYWORDS = (
     "torch", "barrel", "crate", "chest", "banner", "candle",
     "bones", "skull", "wall_", "pillar", "arch", "rubble",
     "floor_dirt", "floor_tile", "door", "gate",
+)
+QUATERNIUS_KEYWORDS = (
+    "tree", "pine", "birch", "maple", "bush", "grass", "flower",
+    "rock", "stump", "log", "house", "inn", "barrack", "blacksmith",
+    "mill", "tower", "well", "market", "cart", "fence", "barrel",
+    "crate", "bench", "bonfire", "path",
 )
 
 
@@ -95,6 +102,7 @@ external_root = os.path.abspath(os.path.join(project_dir, "ExternalAssets"))
 kaykit_root = os.path.join(external_root, "KayKit")
 poly_root = os.path.join(external_root, "PolyHaven")
 kenney_ui_root = os.path.join(external_root, "Kenney", "UIAdventure")
+quaternius_root = os.path.join(external_root, "Quaternius")
 if not os.path.isdir(kaykit_root):
     raise RuntimeError("Packs absents: lance bash tools/assets/fetch_kaykit_cc0.sh")
 
@@ -122,6 +130,32 @@ for pack in PACKS:
 
 if missing:
     raise RuntimeError("Packs KayKit incomplets: " + ", ".join(missing))
+
+if os.path.isdir(quaternius_root):
+    for pack in QUATERNIUS_PACKS:
+        pack_root = os.path.join(quaternius_root, pack)
+        if not os.path.isdir(pack_root):
+            continue
+        seen_textures = set()
+        for root, directories, filenames in os.walk(pack_root):
+            directories[:] = [item for item in directories
+                               if item.lower() not in SKIP_PARTS
+                               and not item.startswith(".")]
+            for filename in sorted(filenames):
+                source = os.path.join(root, filename)
+                extension = os.path.splitext(filename)[1].lower()
+                stem = os.path.splitext(filename)[0].lower()
+                if extension in MODEL_EXTENSIONS and any(
+                        keyword in stem for keyword in QUATERNIUS_KEYWORDS):
+                    sources.append(("model", pack, pack_root, source))
+                elif extension in TEXTURE_EXTENSIONS and wanted_texture(source):
+                    key = filename.lower()
+                    if key not in seen_textures:
+                        sources.append(("texture", pack, pack_root, source))
+                        seen_textures.add(key)
+else:
+    unreal.log_warning(
+        "Quaternius absent: lance bash tools/assets/install_quaternius_cc0_macos.sh")
 
 if os.path.isdir(poly_root):
     for root, directories, filenames in os.walk(poly_root):
@@ -159,6 +193,8 @@ for source_type, pack, pack_root, source in sources:
         base = "/Game/ThirdParty/PolyHaven"
     elif pack == "KenneyUI":
         base = "/Game/ThirdParty/Kenney/UIAdventure"
+    elif pack in QUATERNIUS_PACKS:
+        base = f"/Game/ThirdParty/Quaternius/{pack}"
     else:
         base = f"/Game/ThirdParty/KayKit/{pack}"
     task.set_editor_property("destination_path",
@@ -197,7 +233,7 @@ for path in imported_paths:
     if "/Kenney/" in path:
         counts["KenneyUI"] += 1
         continue
-    for pack in PACKS + ("PolyHaven",):
+    for pack in PACKS + QUATERNIUS_PACKS + ("PolyHaven",):
         if f"/{pack}/" in path:
             counts[pack] += 1
             break
