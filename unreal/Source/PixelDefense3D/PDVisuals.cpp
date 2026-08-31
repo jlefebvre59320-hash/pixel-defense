@@ -47,6 +47,47 @@ AssetType* FindProductionAsset(const FName RequestedName)
     return nullptr;
 }
 
+template <typename AssetType>
+AssetType* FindPreferredProductionAsset(const TCHAR* Token,int32 Variant=0)
+{
+    static TMap<FString,TWeakObjectPtr<AssetType>> Cache;
+    const FString Wanted(Token);
+    const FString CacheKey=FString::Printf(TEXT("%s_%d"),Token,Variant);
+    if(const TWeakObjectPtr<AssetType>* Cached=Cache.Find(CacheKey))
+        if(Cached->IsValid()) return Cached->Get();
+
+    FAssetRegistryModule& Module =
+        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    TArray<FString> PathsToScan;
+    PathsToScan.Add(TEXT("/Game/ThirdParty"));
+    Module.Get().ScanPathsSynchronous(PathsToScan,false);
+
+    TArray<FAssetData> Assets;
+    Module.Get().GetAssetsByPath(
+        FName(TEXT("/Game/ThirdParty")),Assets,true,false);
+    TArray<FAssetData> Preferred;
+    TArray<FAssetData> Fallback;
+    const FTopLevelAssetPath WantedClass=AssetType::StaticClass()->GetClassPathName();
+    for(const FAssetData& Asset:Assets)
+    {
+        if(Asset.AssetClassPath!=WantedClass) continue;
+        if(!Asset.AssetName.ToString().ToLower().Contains(Wanted)) continue;
+        if(Asset.PackageName.ToString().Contains(TEXT("/Quaternius/")))
+            Preferred.Add(Asset);
+        else
+            Fallback.Add(Asset);
+    }
+    TArray<FAssetData>& Matches=Preferred.Num()>0?Preferred:Fallback;
+    Matches.Sort([](const FAssetData& A,const FAssetData& B)
+    {
+        return A.AssetName.ToString()<B.AssetName.ToString();
+    });
+    if(Matches.Num()==0) return nullptr;
+    AssetType* Loaded=Cast<AssetType>(Matches[Variant%Matches.Num()].GetAsset());
+    if(Loaded) Cache.Add(CacheKey,Loaded);
+    return Loaded;
+}
+
 UMaterialInterface* LoadMaterial(const TCHAR* Name)
 {
     const FString Path = FString::Printf(
@@ -334,7 +375,7 @@ void APDEnvironment::BuildTerrain()
 
     Path->SetStaticMesh(Cube);
     PathJunctions->SetStaticMesh(Cylinder);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_WarmV5")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ClayV6")))
     {
         Path->SetMaterial(0,Road);
         PathJunctions->SetMaterial(0,Road);
@@ -356,16 +397,25 @@ void APDEnvironment::BuildTerrain()
 
 void APDEnvironment::BuildForest()
 {
-    UStaticMesh* TreeA=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_A")));
-    UStaticMesh* TreeB=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_B")));
-    UStaticMesh* TreeC=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_C")));
-    UStaticMesh* Shrub=FindProductionAsset<UStaticMesh>(FName(TEXT("bush_single_A")));
-    UStaticMesh* Grass=FindProductionAsset<UStaticMesh>(FName(TEXT("grass_A")));
-    UStaticMesh* Rock=FindProductionAsset<UStaticMesh>(FName(TEXT("rock_single_C")));
-    UStaticMesh* Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("mountain_A")));
+    UStaticMesh* TreeA=FindPreferredProductionAsset<UStaticMesh>(TEXT("tree"),0);
+    UStaticMesh* TreeB=FindPreferredProductionAsset<UStaticMesh>(TEXT("tree"),1);
+    UStaticMesh* TreeC=FindPreferredProductionAsset<UStaticMesh>(TEXT("tree"),2);
+    UStaticMesh* Shrub=FindPreferredProductionAsset<UStaticMesh>(TEXT("bush"),0);
+    UStaticMesh* Grass=FindPreferredProductionAsset<UStaticMesh>(TEXT("grass"),0);
+    UStaticMesh* Rock=FindPreferredProductionAsset<UStaticMesh>(TEXT("rock"),0);
+    UStaticMesh* Cliff=FindPreferredProductionAsset<UStaticMesh>(TEXT("rock"),4);
+
+    if(!TreeA) TreeA=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_A")));
+    if(!TreeB) TreeB=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_B")));
+    if(!TreeC) TreeC=FindProductionAsset<UStaticMesh>(FName(TEXT("tree_single_C")));
+    if(!Shrub) Shrub=FindProductionAsset<UStaticMesh>(FName(TEXT("bush_single_A")));
+    if(!Grass) Grass=FindProductionAsset<UStaticMesh>(FName(TEXT("grass_A")));
+    if(!Rock) Rock=FindProductionAsset<UStaticMesh>(FName(TEXT("rock_single_C")));
+    const bool bUsingRockCliffs=Cliff!=nullptr;
+    if(!Cliff) Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("mountain_A")));
     if(!Cliff) Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("hills_A")));
-    const bool bUsingRockCliffs=!Cliff;
-    if(bUsingRockCliffs) Cliff=Rock;
+    if(!Cliff) Cliff=Rock;
+    if(!TreeB) TreeB=TreeA;
     if(!TreeC) TreeC=TreeB?TreeB:TreeA;
 
     TreesA->SetStaticMesh(TreeA); TreesB->SetStaticMesh(TreeB);
@@ -384,10 +434,10 @@ void APDEnvironment::BuildForest()
 
     struct FGrove { FVector Center; float Radius; int32 Count; };
     const FGrove Groves[]={
-        {{-3400,1850,12},850.f,24},{{-2100,1880,12},620.f,16},
-        {{-3500,-1900,12},760.f,20},{{-900,-1900,12},650.f,15},
-        {{850,1880,12},620.f,15},{{2300,1900,12},800.f,22},
-        {{3550,-1650,12},850.f,23},{{1200,-1850,12},600.f,14}
+        {{-3550,2200,12},560.f,14},{{-2150,2240,12},460.f,10},
+        {{-3500,-1900,12},720.f,17},{{-900,-1950,12},600.f,12},
+        {{850,2240,12},460.f,10},{{2450,2200,12},560.f,14},
+        {{3550,-1650,12},760.f,18},{{1200,-1900,12},560.f,11}
     };
     int32 TreeIndex=0;
     for(const FGrove& Grove:Groves)
@@ -476,6 +526,12 @@ void APDEnvironment::BuildVillage()
         FName(TEXT("building_home_B_blue")));
     if(!HouseC) HouseC=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_home_A_red")));
+    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),0))
+        HouseA=Premium;
+    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),1))
+        HouseB=Premium;
+    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),2))
+        HouseC=Premium;
     if(!HouseB) HouseB=HouseA;
     if(!HouseC) HouseC=HouseA;
 
@@ -483,7 +539,8 @@ void APDEnvironment::BuildVillage()
     UStaticMesh* Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("wall_gate")));
     if(!Gate) Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("gate")));
     if(!Gate) Gate=Wall;
-    UStaticMesh* Crate=FindProductionAsset<UStaticMesh>(FName(TEXT("crate_A_big")));
+    UStaticMesh* Crate=FindPreferredProductionAsset<UStaticMesh>(TEXT("crate"),0);
+    if(!Crate) Crate=FindProductionAsset<UStaticMesh>(FName(TEXT("crate_A_big")));
     UStaticMesh* Torch=FindProductionAsset<UStaticMesh>(FName(TEXT("torch_lit")));
     UStaticMesh* CastleMesh=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_castle_blue")));
