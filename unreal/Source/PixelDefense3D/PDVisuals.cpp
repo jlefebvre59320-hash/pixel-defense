@@ -102,9 +102,11 @@ float DistanceToSegment2D(const FVector& P,const FVector& A,const FVector& B)
 }
 
 const FVector Route[]={
-    FVector(-3200,-1300,15),FVector(-2300,-450,15),FVector(-1200,-850,15),
-    FVector(-250,-100,15),FVector(900,-650,15),FVector(1900,100,15),
-    FVector(3100,850,15)
+    FVector(-3300,-1250,15),FVector(-2920,-980,15),FVector(-2460,-650,15),
+    FVector(-1950,-500,15),FVector(-1450,-660,15),FVector(-930,-720,15),
+    FVector(-470,-430,15),FVector(20,-90,15),FVector(560,-270,15),
+    FVector(1080,-520,15),FVector(1570,-280,15),FVector(2040,80,15),
+    FVector(2550,420,15),FVector(3150,800,15)
 };
 
 bool IsClearOfRoute(const FVector& P,float Clearance)
@@ -262,10 +264,14 @@ APDEnvironment::APDEnvironment()
         return Component;
     };
     Path=MakeHISM(TEXT("Path"));
+    PathJunctions=MakeHISM(TEXT("PathJunctions"));
+    GroundPatches=MakeHISM(TEXT("GroundPatches"));
+    Cliffs=MakeHISM(TEXT("Cliffs"));
     TreesA=MakeHISM(TEXT("TreesA")); TreesB=MakeHISM(TEXT("TreesB"));
     TreesC=MakeHISM(TEXT("TreesC")); Shrubs=MakeHISM(TEXT("Shrubs"));
     Meadow=MakeHISM(TEXT("Meadow")); Rocks=MakeHISM(TEXT("Rocks"));
-    Houses=MakeHISM(TEXT("Houses")); Walls=MakeHISM(TEXT("Walls"));
+    Houses=MakeHISM(TEXT("Houses")); HousesB=MakeHISM(TEXT("HousesB"));
+    HousesC=MakeHISM(TEXT("HousesC")); Walls=MakeHISM(TEXT("Walls"));
     Gateways=MakeHISM(TEXT("Gateways"));
     Props=MakeHISM(TEXT("Props")); Torches=MakeHISM(TEXT("Torches"));
     Fireflies=MakeHISM(TEXT("Fireflies")); Dust=MakeHISM(TEXT("Dust"));
@@ -293,30 +299,53 @@ void APDEnvironment::BuildTerrain()
 {
     UStaticMesh* Cube=LoadObject<UStaticMesh>(
         nullptr,TEXT("/Engine/BasicShapes/Cube.Cube"));
+    UStaticMesh* Cylinder=LoadObject<UStaticMesh>(
+        nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+
     Terrain->SetStaticMesh(Cube);
     Terrain->SetRelativeLocation(FVector(0,250,-85));
     Terrain->SetRelativeScale3D(FVector(82,55,1.6f));
-    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_ValleyV2")))
+    if(UMaterialInterface* Ground=LoadMaterial(TEXT("M_Ground_MeadowV3")))
         Terrain->SetMaterial(0,Ground);
 
     Water->SetStaticMesh(Cube);
-    Water->SetRelativeLocation(FVector(0,0,-55));
-    Water->SetRelativeScale3D(FVector(100,75,.60f));
+    Water->SetRelativeLocation(FVector(0,0,-58));
+    Water->SetRelativeScale3D(FVector(104,79,.56f));
     if(UMaterialInterface* WaterMaterial=LoadMaterial(TEXT("M_Water_ValleyV2")))
         Water->SetMaterial(0,WaterMaterial);
 
+    GroundPatches->SetStaticMesh(Cylinder);
+    if(UMaterialInterface* Patch=LoadMaterial(TEXT("M_Ground_ForestV3")))
+        GroundPatches->SetMaterial(0,Patch);
+    const FTransform Patches[]={
+        {FRotator::ZeroRotator,FVector(-2800,1450,4),FVector(9.5f,6.5f,.025f)},
+        {FRotator::ZeroRotator,FVector(-1550,1250,4),FVector(7.0f,5.0f,.025f)},
+        {FRotator::ZeroRotator,FVector(1250,1450,4),FVector(9.0f,5.8f,.025f)},
+        {FRotator::ZeroRotator,FVector(2550,1350,4),FVector(7.5f,5.0f,.025f)},
+        {FRotator::ZeroRotator,FVector(-2950,-1850,4),FVector(8.0f,4.5f,.025f)},
+        {FRotator::ZeroRotator,FVector(2750,-1650,4),FVector(8.5f,5.0f,.025f)}
+    };
+    for(const FTransform& Patch:Patches) GroundPatches->AddInstance(Patch);
+
     Path->SetStaticMesh(Cube);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ValleyV3")))
+    PathJunctions->SetStaticMesh(Cylinder);
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_CobbleV4")))
+    {
         Path->SetMaterial(0,Road);
+        PathJunctions->SetMaterial(0,Road);
+    }
     for(int32 Index=1;Index<UE_ARRAY_COUNT(Route);++Index)
     {
         const FVector A=Route[Index-1],B=Route[Index];
         const FVector Mid=(A+B)*.5f;
         const FVector Delta=B-A;
-        const float Length=FVector2D(Delta.X,Delta.Y).Size()+90.f;
+        const float Length=FVector2D(Delta.X,Delta.Y).Size()+45.f;
         const float Yaw=FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X));
         Path->AddInstance(FTransform(FRotator(0,Yaw,0),Mid,
-            FVector(Length/100.f,3.05f,.08f)));
+            FVector(Length/100.f,2.45f,.075f)));
+        if(Index<UE_ARRAY_COUNT(Route)-1)
+            PathJunctions->AddInstance(FTransform(FRotator::ZeroRotator,Route[Index],
+                FVector(2.48f,2.48f,.075f)));
     }
 }
 
@@ -328,113 +357,120 @@ void APDEnvironment::BuildForest()
     UStaticMesh* Shrub=FindProductionAsset<UStaticMesh>(FName(TEXT("bush_single_A")));
     UStaticMesh* Grass=FindProductionAsset<UStaticMesh>(FName(TEXT("grass_A")));
     UStaticMesh* Rock=FindProductionAsset<UStaticMesh>(FName(TEXT("rock_single_C")));
+    UStaticMesh* Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("mountain_A")));
+    if(!Cliff) Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("hills_A")));
+    if(!Cliff) Cliff=Rock;
     if(!TreeC) TreeC=TreeB?TreeB:TreeA;
+
     TreesA->SetStaticMesh(TreeA); TreesB->SetStaticMesh(TreeB);
     TreesC->SetStaticMesh(TreeC); Shrubs->SetStaticMesh(Shrub);
     Meadow->SetStaticMesh(Grass); Rocks->SetStaticMesh(Rock);
+    Cliffs->SetStaticMesh(Cliff);
 
-    const float TreeAScale=UniformHeightScale(TreeA,560.f);
-    const float TreeBScale=UniformHeightScale(TreeB,470.f);
-    const float TreeCScale=UniformHeightScale(TreeC,390.f);
-    const float ShrubScale=UniformWidthScale(Shrub,150.f);
-    const float GrassScale=UniformWidthScale(Grass,95.f);
-    const float RockScale=UniformWidthScale(Rock,210.f);
-    FRandomStream Random(20260829);
+    const float TreeAScale=UniformHeightScale(TreeA,520.f);
+    const float TreeBScale=UniformHeightScale(TreeB,430.f);
+    const float TreeCScale=UniformHeightScale(TreeC,350.f);
+    const float ShrubScale=UniformWidthScale(Shrub,135.f);
+    const float GrassScale=UniformWidthScale(Grass,86.f);
+    const float RockScale=UniformWidthScale(Rock,190.f);
+    const float CliffScale=UniformWidthScale(Cliff,650.f);
+    FRandomStream Random(20260831);
 
-    // Dense framing only at the valley edges; the playable center stays readable.
-    for(int32 Attempt=0;Attempt<260;++Attempt)
+    struct FGrove { FVector Center; float Radius; int32 Count; };
+    const FGrove Groves[]={
+        {{-3400,1850,12},850.f,24},{{-2100,1880,12},620.f,16},
+        {{-3500,-1900,12},760.f,20},{{-900,-1900,12},650.f,15},
+        {{850,1880,12},620.f,15},{{2300,1900,12},800.f,22},
+        {{3550,-1650,12},850.f,23},{{1200,-1850,12},600.f,14}
+    };
+    int32 TreeIndex=0;
+    for(const FGrove& Grove:Groves)
     {
-        FVector P(Random.FRandRange(-4050,4050),Random.FRandRange(-2380,2380),14);
-        const bool bEdge=FMath::Abs(P.X)>2850.f||FMath::Abs(P.Y)>1700.f;
-        const bool bGrove=(P.X<-1750.f&&P.Y>650.f)||(P.X>1550.f&&P.Y>1050.f);
-        if((!bEdge&&!bGrove)||!IsClearOfRoute(P,760.f)||Random.FRand()>.46f) continue;
-        const float Choice=Random.FRand();
-        UHierarchicalInstancedStaticMeshComponent* Layer =
-            Choice<.34f?TreesA:(Choice<.70f?TreesB:TreesC);
-        const float Base=Choice<.34f?TreeAScale:(Choice<.70f?TreeBScale:TreeCScale);
-        const FVector Scale(Base*Random.FRandRange(.78f,1.18f),
-                            Base*Random.FRandRange(.78f,1.18f),
-                            Base*Random.FRandRange(.88f,1.22f));
-        Layer->AddInstance(FTransform(
-            FRotator(Random.FRandRange(-2.f,2.f),Random.FRandRange(0,360),0),
-            P,Scale));
-    }
-
-    // Two irregular forest belts close the mobile frame and hide the square board edge.
-    for(int32 Belt=0;Belt<2;++Belt)
-    {
-        const float Inset=Belt*220.f;
-        for(float X=-3900.f;X<=3900.f;X+=340.f)
+        for(int32 Index=0;Index<Grove.Count;++Index)
         {
-            for(float Side : {-1.f,1.f})
-            {
-                FVector P(X+Random.FRandRange(-90.f,90.f),
-                    Side*(2250.f-Inset)+Random.FRandRange(-75.f,75.f),12.f);
-                if(!IsClearOfRoute(P,520.f)) continue;
-                const int32 Pick=(FMath::FloorToInt((X+4100.f)/340.f)+Belt)%3;
-                UHierarchicalInstancedStaticMeshComponent* Layer=
-                    Pick==0?TreesA:(Pick==1?TreesB:TreesC);
-                const float Base=Pick==0?TreeAScale:(Pick==1?TreeBScale:TreeCScale);
-                Layer->AddInstance(FTransform(
-                    FRotator(0,Random.FRandRange(0.f,360.f),0),P,
-                    FVector(Base*Random.FRandRange(.82f,1.16f))));
-            }
-        }
-        for(float Y=-1900.f;Y<=1900.f;Y+=330.f)
-        {
-            for(float Side : {-1.f,1.f})
-            {
-                FVector P(Side*(3970.f-Inset)+Random.FRandRange(-70.f,70.f),
-                    Y+Random.FRandRange(-85.f,85.f),12.f);
-                if(!IsClearOfRoute(P,520.f)) continue;
-                const int32 Pick=(FMath::FloorToInt((Y+2100.f)/330.f)+Belt+1)%3;
-                UHierarchicalInstancedStaticMeshComponent* Layer=
-                    Pick==0?TreesA:(Pick==1?TreesB:TreesC);
-                const float Base=Pick==0?TreeAScale:(Pick==1?TreeBScale:TreeCScale);
-                Layer->AddInstance(FTransform(
-                    FRotator(0,Random.FRandRange(0.f,360.f),0),P,
-                    FVector(Base*Random.FRandRange(.80f,1.12f))));
-            }
+            const float Angle=Random.FRandRange(0.f,2.f*PI);
+            const float Radius=FMath::Sqrt(Random.FRand())*Grove.Radius;
+            FVector P=Grove.Center+FVector(
+                FMath::Cos(Angle)*Radius,FMath::Sin(Angle)*Radius,0);
+            if(!IsClearOfRoute(P,560.f)) continue;
+            const int32 Pick=(TreeIndex++ + Index/3)%3;
+            UHierarchicalInstancedStaticMeshComponent* Layer=
+                Pick==0?TreesA:(Pick==1?TreesB:TreesC);
+            const float Base=Pick==0?TreeAScale:(Pick==1?TreeBScale:TreeCScale);
+            Layer->AddInstance(FTransform(
+                FRotator(Random.FRandRange(-1.5f,1.5f),
+                         Random.FRandRange(0.f,360.f),0),
+                P,FVector(Base*Random.FRandRange(.72f,1.24f),
+                          Base*Random.FRandRange(.72f,1.24f),
+                          Base*Random.FRandRange(.86f,1.26f))));
         }
     }
 
-    // Low vegetation breaks the empty ground without rebuilding a wall of pines.
-    if(Shrub)
+    // Rock ridges form an irregular valley silhouette instead of a square platform.
+    for(int32 Index=0;Index<30;++Index)
     {
-        for(int32 Attempt=0;Attempt<150;++Attempt)
+        const bool bHorizontal=Index<16;
+        FVector P;
+        if(bHorizontal)
         {
-            FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2150,2150),10);
-            if(!IsClearOfRoute(P,430.f)||Random.FRand()>.48f) continue;
+            const float Side=Index%2?1.f:-1.f;
+            P=FVector(-3800.f+(Index/2)*520.f+Random.FRandRange(-130.f,130.f),
+                      Side*2500.f+Random.FRandRange(-100.f,100.f),-15.f);
+        }
+        else
+        {
+            const float Side=Index%2?1.f:-1.f;
+            P=FVector(Side*4250.f+Random.FRandRange(-100.f,100.f),
+                      -2100.f+((Index-16)/2)*610.f+Random.FRandRange(-120.f,120.f),
+                      -15.f);
+        }
+        Cliffs->AddInstance(FTransform(
+            FRotator(Random.FRandRange(-5.f,5.f),Random.FRandRange(0.f,360.f),0),
+            P,FVector(CliffScale*Random.FRandRange(.68f,1.22f))));
+    }
+
+    for(int32 Attempt=0;Attempt<155;++Attempt)
+    {
+        FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2150,2150),9);
+        if(!IsClearOfRoute(P,350.f)||Random.FRand()>.62f) continue;
+        if(Shrub)
             Shrubs->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-                P,FVector(ShrubScale*Random.FRandRange(.65f,1.25f))));
-        }
+                P,FVector(ShrubScale*Random.FRandRange(.55f,1.18f))));
     }
-    if(Grass)
+    for(int32 Attempt=0;Attempt<210;++Attempt)
     {
-        for(int32 Attempt=0;Attempt<220;++Attempt)
-        {
-            FVector P(Random.FRandRange(-3700,3700),Random.FRandRange(-2050,2050),9);
-            if(!IsClearOfRoute(P,320.f)||Random.FRand()>.55f) continue;
+        FVector P(Random.FRandRange(-3750,3750),Random.FRandRange(-2050,2050),8);
+        if(!IsClearOfRoute(P,270.f)||Random.FRand()>.64f) continue;
+        if(Grass)
             Meadow->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-                P,FVector(GrassScale*Random.FRandRange(.55f,1.15f))));
-        }
+                P,FVector(GrassScale*Random.FRandRange(.48f,1.08f))));
     }
-    for(int32 Attempt=0,Placed=0;Attempt<100&&Placed<28;++Attempt)
+    for(int32 Attempt=0,Placed=0;Attempt<120&&Placed<34;++Attempt)
     {
-        FVector P(Random.FRandRange(-3850,3850),Random.FRandRange(-2200,2200),11);
-        if(!IsClearOfRoute(P,540.f)) continue;
+        FVector P(Random.FRandRange(-3800,3800),Random.FRandRange(-2100,2100),10);
+        if(!IsClearOfRoute(P,470.f)) continue;
         Rocks->AddInstance(FTransform(
-            FRotator(Random.FRandRange(-7,7),Random.FRandRange(0,360),0),
-            P,FVector(RockScale*Random.FRandRange(.48f,1.18f))));
+            FRotator(Random.FRandRange(-8,8),Random.FRandRange(0,360),0),
+            P,FVector(RockScale*Random.FRandRange(.42f,1.12f))));
         ++Placed;
     }
 }
 
-
 void APDEnvironment::BuildVillage()
 {
-    UStaticMesh* House=FindProductionAsset<UStaticMesh>(
+    UStaticMesh* HouseA=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_home_A_blue")));
+    UStaticMesh* HouseB=FindProductionAsset<UStaticMesh>(
+        FName(TEXT("building_home_B_red")));
+    UStaticMesh* HouseC=FindProductionAsset<UStaticMesh>(
+        FName(TEXT("building_home_C_yellow")));
+    if(!HouseB) HouseB=FindProductionAsset<UStaticMesh>(
+        FName(TEXT("building_home_B_blue")));
+    if(!HouseC) HouseC=FindProductionAsset<UStaticMesh>(
+        FName(TEXT("building_home_A_red")));
+    if(!HouseB) HouseB=HouseA;
+    if(!HouseC) HouseC=HouseA;
+
     UStaticMesh* Wall=FindProductionAsset<UStaticMesh>(FName(TEXT("wall_straight")));
     UStaticMesh* Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("wall_gate")));
     if(!Gate) Gate=FindProductionAsset<UStaticMesh>(FName(TEXT("gate")));
@@ -443,53 +479,74 @@ void APDEnvironment::BuildVillage()
     UStaticMesh* Torch=FindProductionAsset<UStaticMesh>(FName(TEXT("torch_lit")));
     UStaticMesh* CastleMesh=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_castle_blue")));
-    Houses->SetStaticMesh(House); Walls->SetStaticMesh(Wall);
+
+    Houses->SetStaticMesh(HouseA); HousesB->SetStaticMesh(HouseB);
+    HousesC->SetStaticMesh(HouseC); Walls->SetStaticMesh(Wall);
     Gateways->SetStaticMesh(Gate);
     Props->SetStaticMesh(Crate); Torches->SetStaticMesh(Torch);
     Castle->SetStaticMesh(CastleMesh);
 
-    const float HouseScale=UniformWidthScale(House,620.f);
-    const float WallScale=UniformWidthScale(Wall,520.f);
-    const float GateScale=UniformWidthScale(Gate,720.f);
-    const float PropScale=UniformWidthScale(Crate,120.f);
-    const float TorchScale=UniformHeightScale(Torch,190.f);
-    const float CastleScale=UniformWidthScale(CastleMesh,1050.f);
-    Castle->SetRelativeLocation(FVector(3550,1080,10));
-    Castle->SetRelativeRotation(FRotator(0,-35,0));
+    const float HouseAScale=UniformWidthScale(HouseA,535.f);
+    const float HouseBScale=UniformWidthScale(HouseB,500.f);
+    const float HouseCScale=UniformWidthScale(HouseC,475.f);
+    const float WallScale=UniformWidthScale(Wall,480.f);
+    const float GateScale=UniformWidthScale(Gate,650.f);
+    const float PropScale=UniformWidthScale(Crate,105.f);
+    const float TorchScale=UniformHeightScale(Torch,175.f);
+    const float CastleScale=UniformWidthScale(CastleMesh,1020.f);
+
+    Castle->SetRelativeLocation(FVector(3520,1120,8));
+    Castle->SetRelativeRotation(FRotator(0,-32,0));
     Castle->SetRelativeScale3D(FVector(CastleScale));
 
-    const FVector HouseSpots[]={
-        {2450,1580,10},{1770,1750,10},{1120,1510,10},
-        {-2700,1320,10},{-1940,1510,10}
+    struct FHouseSpot { FVector Position; float Yaw; int32 Style; float Scale; };
+    const FHouseSpot HouseSpots[]={
+        {{-2850,1130,8},-28.f,0,1.0f},{{-2290,1450,8},22.f,1,.96f},
+        {{-1700,1120,8},-18.f,2,.92f},{{-1120,1500,8},36.f,0,.88f},
+        {{980,1320,8},-32.f,1,.94f},{{1510,1580,8},18.f,0,1.0f},
+        {{2070,1250,8},-24.f,2,.92f},{{2630,1580,8},28.f,1,.96f}
     };
-    for(int32 Index=0;Index<UE_ARRAY_COUNT(HouseSpots);++Index)
-        Houses->AddInstance(FTransform(FRotator(0,Index%2?145:-25,0),
-            HouseSpots[Index],FVector(HouseScale)));
-
-    for(int32 Index=0;Index<7;++Index)
+    for(const FHouseSpot& Spot:HouseSpots)
     {
-        Walls->AddInstance(FTransform(FRotator(0,90,0),
-            FVector(3300,230-Index*300,10),FVector(WallScale)));
+        UHierarchicalInstancedStaticMeshComponent* Layer=
+            Spot.Style==0?Houses:(Spot.Style==1?HousesB:HousesC);
+        const float Base=Spot.Style==0?HouseAScale:
+            (Spot.Style==1?HouseBScale:HouseCScale);
+        Layer->AddInstance(FTransform(FRotator(0,Spot.Yaw,0),Spot.Position,
+            FVector(Base*Spot.Scale)));
     }
 
-    // Readable fantasy portals make the enemy entrance and castle exit intentional.
-    Gateways->AddInstance(FTransform(FRotator(0,44.f,0),
-        FVector(-3220,-1320,10),FVector(GateScale)));
-    Gateways->AddInstance(FTransform(FRotator(0,36.f,0),
-        FVector(3130,860,10),FVector(GateScale)));
+    // Castle wall follows the landscape and leaves a clear approach to the gate.
+    for(int32 Index=0;Index<6;++Index)
+        Walls->AddInstance(FTransform(FRotator(0,90,0),
+            FVector(3330,80-Index*285,8),FVector(WallScale)));
+    for(int32 Index=0;Index<3;++Index)
+        Walls->AddInstance(FTransform(FRotator(0,0,0),
+            FVector(3520+Index*285,-1500,8),FVector(WallScale)));
 
-    FRandomStream Random(77);
-    for(int32 Index=0;Index<12;++Index)
+    Gateways->AddInstance(FTransform(FRotator(0,36.f,0),
+        FVector(-3330,-1250,8),FVector(GateScale)));
+    Gateways->AddInstance(FTransform(FRotator(0,35.f,0),
+        FVector(3180,820,8),FVector(GateScale)));
+
+    FRandomStream Random(137);
+    const FVector MarketCenters[]={
+        FVector(-2150,900,14),FVector(1550,940,14),FVector(2580,1030,14)
+    };
+    for(const FVector& Center:MarketCenters)
     {
-        const FVector P(Random.FRandRange(1100,2950),
-            Random.FRandRange(1150,2050),18);
-        Props->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-            P,FVector(PropScale*Random.FRandRange(.75f,1.2f))));
+        for(int32 Index=0;Index<5;++Index)
+        {
+            const FVector P=Center+FVector(
+                Random.FRandRange(-260,260),Random.FRandRange(-210,210),0);
+            Props->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
+                P,FVector(PropScale*Random.FRandRange(.72f,1.12f))));
+        }
     }
 
     const FVector TorchSpots[]={
-        {-3340,-1500,35},{-3060,-1160,35},{-250,-100,35},
-        {1850,140,35},{3010,680,35},{3250,1010,35}
+        {-3420,-1430,32},{-3180,-1090,32},{-2400,920,32},{-1500,980,32},
+        {880,880,32},{1780,900,32},{2910,610,32},{3270,1000,32}
     };
     for(const FVector& P:TorchSpots)
     {
@@ -497,9 +554,9 @@ void APDEnvironment::BuildVillage()
         UPointLightComponent* Light=NewObject<UPointLightComponent>(this);
         AddInstanceComponent(Light); Light->RegisterComponent();
         Light->AttachToComponent(Root,FAttachmentTransformRules::KeepRelativeTransform);
-        Light->SetRelativeLocation(P+FVector(0,0,160));
-        Light->SetLightColor(FLinearColor(1.f,.38f,.08f));
-        Light->SetIntensity(1700.f); Light->SetAttenuationRadius(460.f);
+        Light->SetRelativeLocation(P+FVector(0,0,150));
+        Light->SetLightColor(FLinearColor(1.f,.42f,.11f));
+        Light->SetIntensity(1550.f); Light->SetAttenuationRadius(430.f);
         Light->SetCastShadows(false);
         TorchLights.Add(Light);
     }
