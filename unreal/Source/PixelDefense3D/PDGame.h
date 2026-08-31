@@ -21,6 +21,28 @@ enum class EPDTowerKind : uint8
 };
 
 UCLASS()
+class PIXELDEFENSE3D_API APDVillager : public AActor
+{
+    GENERATED_BODY()
+public:
+    APDVillager();
+    virtual void Tick(float DeltaSeconds) override;
+    void InitVillager(const FVector& InA,const FVector& InB,FName MeshName,float InPhase);
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* CharacterVisual;
+
+private:
+    FVector PointA=FVector::ZeroVector;
+    FVector PointB=FVector::ZeroVector;
+    bool bGoingToB=true;
+    float Speed=92.f;
+    float PauseRemaining=0.f;
+    UPROPERTY() UAnimSequence* WalkAnimation=nullptr;
+    UPROPERTY() UAnimSequence* IdleAnimation=nullptr;
+    void PlayLoop(UAnimSequence* Animation);
+};
+
+UCLASS()
 class PIXELDEFENSE3D_API APDEnemy : public AActor
 {
     GENERATED_BODY()
@@ -139,6 +161,7 @@ private:
     bool bPauseMenuOpen=false;
     void SpawnEnemy();
     void CreateBuildPads();
+    void CreateVillagers();
     void CreateCamera();
 };
 
