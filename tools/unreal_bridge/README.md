@@ -11,6 +11,28 @@ python3 tools/unreal_bridge/bridge.py run --eval "unreal.SystemLibrary.get_engin
 
 Aucune dépendance : Python 3.8 et la bibliothèque standard.
 
+## Deux façons de lancer un travail
+
+Le pont parle à un éditeur **déjà ouvert**. C'est pratique quand on travaille
+dedans — et inutilisable quand il est fermé, ce qui est le cas juste après
+`tools/unreal/ultimate_setup_macos.sh`, qui compile puis quitte.
+
+D'où un second lanceur, qui prend **le même fichier de travail** et le donne à
+`UnrealEditor-Cmd -ExecutePythonScript`, comme le reste des scripts du projet :
+
+| Situation | Commande |
+| --- | --- |
+| L'éditeur est ouvert | `python3 tools/unreal_bridge/bridge.py run-job <travail>` |
+| L'éditeur est fermé | `python3 tools/unreal_bridge/run_local.py <travail>` |
+
+`run_local.py` trouve le moteur comme les scripts `tools/unreal/*.sh`
+(`UE_ENGINE_ROOT`, puis la version la plus récente sous
+`/Users/Shared/Epic Games/UE_*`) et le projet sous `unreal/*.uproject`.
+`--dry-run` montre la ligne de commande exacte sans rien lancer.
+
+Il ne passe **pas** `-nullrhi` : la capture de sprites a besoin d'un vrai
+rendu, et un moteur sans RHI écrirait des images vides sans le dire.
+
 ## Ce que ça n'est pas
 
 > **Le pont n'a jamais parlé à un vrai éditeur Unreal.** Unreal n'est pas
@@ -150,7 +172,8 @@ n'a pas pu travailler (aucun éditeur, fichier introuvable, JSON invalide).
 ## Faire des sprites à partir d'un pack
 
 ```
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
+# éditeur fermé — le cas le plus courant
+python3 tools/unreal_bridge/run_local.py tools/unreal_bridge/jobs/export_sprites.json
 node tools/import-textures.mjs <dossier annoncé en fin de travail> --name mon-pack
 ```
 

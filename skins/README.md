@@ -10,8 +10,8 @@ redistribuent pas. Chacun engendre le sien.
 ## Fabriquer un habillage
 
 ```
-# 1. dans l'éditeur Unreal — voir tools/unreal_bridge/README.md
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
+# 1. côté Unreal — voir tools/unreal_bridge/README.md
+python3 tools/unreal_bridge/run_local.py tools/unreal_bridge/jobs/export_sprites.json
 
 # 2. hors du moteur
 node tools/import-textures.mjs <dossier de captures> --name mon-pack

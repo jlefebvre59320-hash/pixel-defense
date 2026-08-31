@@ -16,6 +16,7 @@ tête de `fake_editor.py`.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -359,6 +360,80 @@ def test_export_sprites(tmp: Path):
         check("les ancrages sont là", '"ay"' in text and '"sw"' in text)
 
 
+
+def test_run_local(tmp: Path):
+    """Le lanceur sans pont : il faut que la ligne de commande soit juste et
+    que l'échec d'une étape arrête le travail. Vérifié contre un faux binaire
+    d'éditeur qui exécute vraiment le script qu'on lui passe."""
+    print("run_local : lancer l'éditeur au lieu de le piloter")
+
+    # Arborescence d'un moteur, avec le faux binaire à la place attendue.
+    engine = tmp / "FakeUE"
+    for rel in ("Engine/Binaries/Mac", "Engine/Binaries/Linux"):
+        (engine / rel).mkdir(parents=True, exist_ok=True)
+        target = engine / rel / "UnrealEditor-Cmd"
+        shutil.copy(HERE / "fake_editor_cmd.sh", target)
+        target.chmod(0o755)
+
+    env = dict(os.environ,
+               UE_ENGINE_ROOT=str(engine),
+               FAKE_UNREAL_DIR=str(HERE),
+               FAKE_UNREAL_SAVED=str(tmp))
+
+    def run(job_file, *extra):
+        return subprocess.run(
+            [sys.executable, str(HERE.parent / "run_local.py"), str(job_file), *extra],
+            cwd=str(ROOT), capture_output=True, text=True, timeout=180, env=env)
+
+    caps = tmp / "caps_local"
+    job = json.loads((ROOT / "tools/unreal_bridge/jobs/export_sprites.json").read_text(encoding="utf-8"))
+    job["steps"][1]["params"]["out_dir"] = str(caps)
+    job_path = tmp / "local_export.json"
+    job_path.write_text(json.dumps(job), encoding="utf-8")
+
+    dry = run(job_path, "--dry-run")
+    check("la répétition montre la commande",
+          "-ExecutePythonScript=" in dry.stdout and "-nosplash" in dry.stdout,
+          dry.stdout[:200])
+    check("la répétition ne lance rien", not caps.exists())
+
+    proc = run(job_path)
+    check("le travail aboutit", proc.returncode == 0,
+          proc.stderr.strip() or proc.stdout[-400:])
+    check("les captures sont écrites",
+          caps.exists() and len(list(caps.glob("*.png"))) == 26,
+          len(list(caps.glob("*.png"))) if caps.exists() else 0)
+
+    # Une étape qui échoue doit arrêter le travail, comme avec le pont.
+    broken = tmp / "local_broken.json"
+    broken.write_text(json.dumps({
+        "name": "casse",
+        "steps": [
+            {"name": "boum", "script": "tools/unreal_bridge/tests/_boom.py"},
+            {"name": "jamais atteinte", "script": "tools/unreal_bridge/tests/_boom.py"},
+        ],
+    }), encoding="utf-8")
+    boom = HERE / "_boom.py"
+    boom.write_text("raise SystemExit(7)\n", encoding="utf-8")
+    try:
+        bad = run(broken)
+        check("une étape en échec fait échouer le travail", bad.returncode == 1, bad.returncode)
+        check("l'interruption est annoncée", "interrompu" in bad.stderr, bad.stderr.strip()[:200])
+        check("l'étape suivante n'est pas lancée", bad.stdout.count("[2/2]") == 0, bad.stdout)
+    finally:
+        boom.unlink(missing_ok=True)
+
+    # Sans moteur nulle part, le message doit dire quoi faire.
+    lost = dict(env)
+    lost["UE_ENGINE_ROOT"] = str(tmp / "nulle-part")
+    missing = subprocess.run(
+        [sys.executable, str(HERE.parent / "run_local.py"), str(job_path)],
+        cwd=str(ROOT), capture_output=True, text=True, timeout=60, env=lost)
+    check("un moteur absent est expliqué",
+          missing.returncode == 2 and "UE_ENGINE_ROOT" in missing.stderr,
+          missing.stderr.strip()[:200])
+
+
 def main():
     tmp = Path(__file__).resolve().parent / "_tmp"
     tmp.mkdir(exist_ok=True)
@@ -366,6 +441,7 @@ def main():
     test_stream_parsing()
     test_job_validation(tmp)
     test_engine_discovery(tmp)
+    test_run_local(tmp)
     test_no_editor(tmp)       # avant de lancer l'éditeur, forcément
     test_macos_hint()
 

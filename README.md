@@ -183,8 +183,8 @@ jusqu'au jeu, et chaque maillon se vérifie tout seul.
 
 ```
         pack Unreal
-             │   bridge.py run-job production_asset_inventory_09.json
-             │   bridge.py run-job export_sprites.json   ← une photo par figure
+             │   run_local.py jobs/export_sprites.json  ← une photo par figure
+             │   (ou bridge.py run-job … si l'éditeur est ouvert)
              ▼
       captures PNG (fond magenta)
              │   node tools/import-textures.mjs <dossier> --name mon-pack
