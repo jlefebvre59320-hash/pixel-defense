@@ -99,6 +99,7 @@ styles.css          Habillage bois et parchemin, mobile d'abord, cibles ≥ 44 p
 js/config.js        Tout l'équilibrage : tours, ennemis, 20 vagues, économie
 js/map.js           Grille 9×16, chemin déduit des points de passage, décor
 js/art.js           Toutes les figures, tracées en courbes puis mises en cache
+js/skin.js          Remplace une figure tracée par une image, quand il y en a une
 js/storage.js       Record et préférences (localStorage, panne sans douleur)
 js/audio.js         Bruitages de synthèse — aucun fichier son
 js/render.js        Rendu canvas : décor peint une fois, tri par profondeur, effets
@@ -107,7 +108,11 @@ js/ui.js            Interface DOM : compteurs, panneaux, écrans
 js/main.js          Boucle, entrées, écrans, service worker
 sw.js               Mise en cache hors ligne
 tools/simulate.mjs  Robot d'équilibrage (Node, sans navigateur)
-tools/make-icons.mjs Génère les icônes PNG (encodeur PNG maison)
+tools/make-icons.mjs Génère les icônes PNG
+tools/png.mjs       PNG en lecture et en écriture, sans dépendance
+tools/import-textures.mjs  Captures → atlas + manifeste (voir plus bas)
+tools/tests/test-textures.mjs  Banc de l'import, sans navigateur
+skins/              Habillages engendrés (vides et non versionnés par défaut)
 ```
 
 Trois partis pris qui expliquent le reste :
@@ -169,6 +174,51 @@ mur.
 Un contrôle au chargement (`Art.validate()`) trace chaque figure une fois et
 signale dans la console celles qui manquent ou qui échouent. Les icônes de
 l'application se régénèrent avec `node tools/make-icons.mjs`.
+
+### Habiller le jeu avec un pack de textures
+
+Le dessin par code est le **défaut**, pas une fatalité : n'importe quelle
+figure peut être remplacée par une image. La chaîne va d'un pack Unreal
+jusqu'au jeu, et chaque maillon se vérifie tout seul.
+
+```
+        pack Unreal
+             │   bridge.py run-job list_pack.json        ← qu'y a-t-il dedans ?
+             │   bridge.py run-job export_sprites.json   ← une photo par figure
+             ▼
+      captures PNG (fond magenta)
+             │   node tools/import-textures.mjs <dossier> --name mon-pack
+             ▼
+   skins/mon-pack/atlas.png + atlas.js
+             │   <script src="skins/mon-pack/atlas.js"></script>
+             ▼
+           le jeu
+```
+
+Trois choix qui expliquent le reste :
+
+1. **Le moteur photographie, il ne découpe pas.** Sortir un alpha propre d'un
+   `SceneCapture` demande des réglages qui changent d'une version d'Unreal à
+   l'autre. Le fond est donc peint d'une couleur franche, et le détourage se
+   fait côté Node — là où il est testable, et où il l'est.
+2. **Le repli est toujours possible, figure par figure.** Une figure absente
+   de l'habillage reste tracée. On peut habiller les gobelins un jour et les
+   tours le mois suivant sans que rien ne casse entre-temps.
+3. **Le manifeste est du JavaScript, pas du JSON.** Le jeu s'ouvre depuis un
+   simple fichier local, où `fetch` est interdit par la politique d'origine.
+   Un `<script>` passe.
+
+Le cadrage des captures est commun à toutes les figures — une boîte de
+`frame_cm` centimètres — et l'atlas retient la taille de chaque capture avant
+rognage. C'est ce qui garde les tailles relatives : un troll sort plus gros
+qu'un gobelin sans réglage, et rogner une marge ne fait pas grandir la figure.
+
+Détail des noms de figures, des ancrages et des licences :
+[`skins/README.md`](skins/README.md).
+
+```
+node tools/tests/test-textures.mjs      # 23 vérifications, sans navigateur
+```
 
 ## Version Godot
 
@@ -316,8 +366,14 @@ Python **dans un éditeur Unreal ouvert**, depuis le terminal.
 ```
 python3 tools/unreal_bridge/bridge.py ping
 python3 tools/unreal_bridge/bridge.py run-script unreal/Content/Python/healthcheck.py
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/build_test_arena.json
+python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/list_pack.json
+python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
 ```
+
+C'est par là que passent les packs de textures : `list_pack` dit ce que
+contient le pack, `export_sprites` en photographie les maillages en vue 3/4,
+et [`tools/import-textures.mjs`](tools/import-textures.mjs) en fait la planche
+que le jeu charge — voir *Habiller le jeu avec un pack de textures*.
 
 Sur macOS, le moteur est repéré tout seul dans `/Users/Shared/Epic Games/UE_*`
 (la version la plus récente d'abord), et `--verbose` dit en une ligne si le

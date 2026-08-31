@@ -145,6 +145,36 @@ n'a pas pu travailler (aucun éditeur, fichier introuvable, JSON invalide).
 | --- | --- |
 | [`unreal/Content/Python/healthcheck.py`](../../unreal/Content/Python/healthcheck.py) | Ne modifie rien. Version du moteur, projet ouvert, sous-systèmes d'édition disponibles. Sort en erreur s'il manque une capacité. |
 | [`unreal/Content/Python/build_test_arena.py`](../../unreal/Content/Python/build_test_arena.py) | Une dalle, quatre murs, des obstacles, un point de départ, deux lumières, dans `/Game/Maps/TestArena`. |
+| [`unreal/Content/Python/list_pack.py`](../../unreal/Content/Python/list_pack.py) | Ne modifie rien. Inventaire d'un pack : maillages, dimensions en centimètres, matériaux. À lancer **avant** l'export, pour connaître les chemins à mettre dans le travail. |
+| [`unreal/Content/Python/export_sprites.py`](../../unreal/Content/Python/export_sprites.py) | Photographie chaque maillage demandé en vue 3/4 orthographique, sur fond plat, et écrit un PNG par figure. |
+
+## Faire des sprites à partir d'un pack
+
+```
+python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/list_pack.json
+```
+
+Relevez les chemins qui vous intéressent, reportez-les dans le champ `figures`
+de [`jobs/export_sprites.json`](jobs/export_sprites.json) — une entrée par
+sprite, avec son nom côté jeu (`crawler`, `tower_gun`…) et sa trame — puis :
+
+```
+python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
+node tools/import-textures.mjs <dossier annoncé en fin de travail> --name mon-pack
+```
+
+Le moteur photographie sur **fond magenta** ; le détourage, le rognage,
+l'atlas et le manifeste se font hors du moteur, où c'est testable. Si votre
+matériau de fond n'accepte pas la couleur demandée, le travail le dit : passez
+alors la couleur obtenue à `--key r,g,b` à l'import, ou `--no-key` si vos
+captures ont déjà leur transparence.
+
+> **La partie capture est la plus incertaine de tout ce dépôt.** Le montage
+> `SceneCapture2D` est écrit d'après l'API, jamais exécuté dans un vrai
+> éditeur. Chaque opération est isolée et nommée : si quelque chose manque, le
+> travail le dit à l'étape près plutôt que de mourir. Envoyez-moi la sortie.
+> L'import, lui, marche quelle que soit la façon dont vous produisez les PNG —
+> vous pouvez très bien les sortir à la main.
 
 Les deux savent tourner sur UE4 comme sur UE5 : les sous-systèmes (`LevelEditorSubsystem`,
 `EditorActorSubsystem`) sont essayés d'abord, `EditorLevelLibrary` sert de
@@ -157,11 +187,13 @@ avertissement nommé, pas un script mort à mi-chemin.
 python3 tools/unreal_bridge/tests/test_bridge.py
 ```
 
-46 vérifications, sans Unreal : découpage du flux TCP, refus des travaux mal
+58 vérifications, sans Unreal : découpage du flux TCP, refus des travaux mal
 formés, repérage du moteur sur une arborescence Mac factice, message d'aide
 propre à macOS, découverte par multicast, exécution d'un fichier, enchaînement
-d'un travail, arrêt sur échec, et le contenu exact de l'arène produite
-(16 acteurs, le sol à la bonne échelle, le départ sur la bonne tuile).
+d'un travail, arrêt sur échec, le contenu exact de l'arène produite (16 acteurs,
+le sol à la bonne échelle, le départ sur la bonne tuile), et la chaîne complète
+des sprites : 26 captures écrites par le doublon, importées par le vrai outil,
+jusqu'à la planche que le jeu charge.
 
 En face, deux doublons :
 

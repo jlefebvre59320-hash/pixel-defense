@@ -230,6 +230,13 @@
   }
 
   function boot() {
+    /* Habillage : s'il y en a un de déclaré, il prend le pas sur le dessin
+       tracé, figure par figure. Sinon rien ne change. */
+    if (PD.Skin) {
+      var skin = PD.Skin.use();
+      if (skin) console.info("Habillage « " + skin.name + " » chargé.");
+    }
+
     var bad = PD.Art.validate();
     if (bad.length) console.warn("Figures incohérentes :\n" + bad.join("\n"));
 

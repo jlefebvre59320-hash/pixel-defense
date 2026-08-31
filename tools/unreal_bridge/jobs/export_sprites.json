@@ -1,0 +1,54 @@
+{
+  "name": "export_sprites",
+  "description": "Photographie les maillages d'un pack en vue 3/4 orthographique, un PNG par figure du jeu.",
+  "steps": [
+    {
+      "name": "Contrôle du moteur",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true
+    },
+    {
+      "name": "Capture des sprites",
+      "script": "unreal/Content/Python/export_sprites.py",
+      "timeout": 900,
+      "comment": "Remplacez chaque « asset » par le chemin réel dans votre pack — lancez d'abord le travail list_pack pour les connaître. « frame » est la variante : 0/1 pour la marche, 1/2/3 pour le niveau d'une tour.",
+      "params": {
+        "size": 512,
+        "frame_cm": 300.0,
+        "pitch": -32.0,
+        "yaw": 45.0,
+        "background": [1.0, 0.0, 1.0],
+        "figures": [
+          { "name": "crawler", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Goblin", "yaw": 0 },
+          { "name": "crawler", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Goblin", "yaw": 12 },
+          { "name": "swarm", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Wolf", "yaw": 0 },
+          { "name": "swarm", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Wolf", "yaw": 12 },
+          { "name": "armored", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Orc", "yaw": 0 },
+          { "name": "armored", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Orc", "yaw": 12 },
+          { "name": "flyer", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Harpy", "yaw": 0 },
+          { "name": "flyer", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Harpy", "yaw": 12 },
+          { "name": "boss", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Troll", "yaw": 0, "scale": 1.8 },
+          { "name": "boss", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Troll", "yaw": 12, "scale": 1.8 },
+
+          { "name": "tower_gun", "frame": 1, "asset": "/Game/Pack/Meshes/SM_ArcherTower_01" },
+          { "name": "tower_gun", "frame": 2, "asset": "/Game/Pack/Meshes/SM_ArcherTower_02" },
+          { "name": "tower_gun", "frame": 3, "asset": "/Game/Pack/Meshes/SM_ArcherTower_03" },
+          { "name": "tower_cannon", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Bombard_01" },
+          { "name": "tower_cannon", "frame": 2, "asset": "/Game/Pack/Meshes/SM_Bombard_02" },
+          { "name": "tower_cannon", "frame": 3, "asset": "/Game/Pack/Meshes/SM_Bombard_03" },
+          { "name": "tower_frost", "frame": 1, "asset": "/Game/Pack/Meshes/SM_FrostTower_01" },
+          { "name": "tower_frost", "frame": 2, "asset": "/Game/Pack/Meshes/SM_FrostTower_02" },
+          { "name": "tower_frost", "frame": 3, "asset": "/Game/Pack/Meshes/SM_FrostTower_03" },
+          { "name": "tower_tesla", "frame": 1, "asset": "/Game/Pack/Meshes/SM_MageTower_01" },
+          { "name": "tower_tesla", "frame": 2, "asset": "/Game/Pack/Meshes/SM_MageTower_02" },
+          { "name": "tower_tesla", "frame": 3, "asset": "/Game/Pack/Meshes/SM_MageTower_03" },
+
+          { "name": "tree", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Tree" },
+          { "name": "rock", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Rock" },
+          { "name": "core", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Castle", "scale": 1.6 },
+          { "name": "cave", "frame": 0, "asset": "/Game/Pack/Meshes/SM_CaveEntrance" }
+        ]
+      }
+    }
+  ]
+}

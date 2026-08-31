@@ -288,6 +288,53 @@ def test_verbose_diagnostic():
           "implémentation embarquée" in proc.stderr, proc.stderr[-300:])
 
 
+
+def test_export_sprites(tmp: Path):
+    """La chaîne entière : le moteur photographie, Node importe, le jeu a sa
+    planche. Sans Unreal — le doublon écrit de vrais PNG, et tout ce qui suit
+    est le code réel."""
+    print("run-job : capture de sprites, puis import")
+
+    caps = tmp / "caps"
+    job = json.loads((ROOT / "tools/unreal_bridge/jobs/export_sprites.json").read_text(encoding="utf-8"))
+    job["steps"][1]["params"]["out_dir"] = str(caps)
+    job_path = tmp / "export_here.json"
+    job_path.write_text(json.dumps(job), encoding="utf-8")
+
+    proc = run_bridge("run-job", str(job_path), timeout=180)
+    check("le travail se termine sans échec", proc.returncode == 0,
+          proc.stderr.strip() or proc.stdout[-400:])
+
+    written = sorted(p.name for p in caps.glob("*.png")) if caps.exists() else []
+    check("26 captures écrites", len(written) == 26, len(written))
+    check("le nommage porte la figure et la trame",
+          "crawler@0.png" in written and "tower_gun@3.png" in written, written[:4])
+
+    # Deux figures différentes ne doivent pas donner la même image : sinon un
+    # habillage entier pourrait être le même sprite répété sans qu'on le voie.
+    if len(written) >= 2:
+        a = (caps / "crawler@0.png").read_bytes()
+        b = (caps / "boss@0.png").read_bytes()
+        check("chaque figure a sa propre image", a != b)
+
+    out = tmp / "skins"
+    imported = subprocess.run(
+        ["node", str(ROOT / "tools/import-textures.mjs"), str(caps),
+         "--name", "banc", "--out", str(out)],
+        cwd=str(ROOT), capture_output=True, text=True, timeout=120)
+    check("l'import réussit", imported.returncode == 0,
+          imported.stderr.strip() or imported.stdout[-300:])
+
+    atlas_js = out / "banc" / "atlas.js"
+    atlas_png = out / "banc" / "atlas.png"
+    check("la planche est écrite", atlas_js.exists() and atlas_png.exists())
+    if atlas_js.exists():
+        text = atlas_js.read_text(encoding="utf-8")
+        for figure in ("crawler", "boss", "tower_gun", "tower_cannon", "core"):
+            check("la planche contient « %s »" % figure, '"%s"' % figure in text)
+        check("les ancrages sont là", '"ay"' in text and '"sw"' in text)
+
+
 def main():
     tmp = Path(__file__).resolve().parent / "_tmp"
     tmp.mkdir(exist_ok=True)
@@ -306,6 +353,7 @@ def main():
         test_verbose_diagnostic()
         test_healthcheck()
         test_run_job()
+        test_export_sprites(tmp)
         test_job_stops_on_failure(tmp)
     finally:
         editor.stop()

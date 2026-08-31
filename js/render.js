@@ -380,7 +380,12 @@
       /* Le canon est la seule tour dont une pièce pivote : sa bouche suit la
          cible, et recule au tir. Les autres restent immobiles — ce sont leurs
          projectiles qui disent où elles visent. */
-      if (def.key === "cannon") {
+      /* La bouche pivotante n'a lieu d'être que si elle n'est pas déjà dans le
+         sprite : un habillage qui fournit la bombarde entière n'en veut pas
+         une seconde par-dessus. */
+      var wantsBarrel = !A.skinned("tower_cannon", t.level)
+        || A.skinned("tower_cannon.barrel", t.level);
+      if (def.key === "cannon" && wantsBarrel) {
         var recoil = t.flash > 0 ? Math.min(1, t.flash / 0.09) * tile * 0.10 : 0;
         var deck = A.markAt("tower_cannon", t.level, TOWER_W * tile);
         A.draw(ctx, "tower_cannon.barrel", {
@@ -499,7 +504,7 @@
         /* Posée juste au-dessus du sommet réel de la créature, quel que soit
            son point d'ancrage — pieds pour ce qui marche, centre pour ce qui
            vole. */
-        var by = footY - A.topAt(def.key, w) - tile * 0.07;
+        var by = footY - A.topAt(def.key, w, frame) - tile * 0.07;
 
         ctx.save();
         ctx.lineWidth = Math.max(1.5, tile * 0.028);

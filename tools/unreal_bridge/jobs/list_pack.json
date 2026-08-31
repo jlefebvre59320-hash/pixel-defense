@@ -1,0 +1,17 @@
+{
+  "name": "list_pack",
+  "description": "Inventaire des packs installés dans le projet Unreal : maillages, tailles, matériaux, textures.",
+  "steps": [
+    {
+      "name": "Inventaire",
+      "script": "unreal/Content/Python/list_pack.py",
+      "params": {
+        "paths": ["/Game"],
+        "kinds": ["StaticMesh"],
+        "limit": 400,
+        "with_bounds": true
+      },
+      "timeout": 300
+    }
+  ]
+}

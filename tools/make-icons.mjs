@@ -1,9 +1,9 @@
 /* Fabrique les icônes PNG de l'application à partir d'un dessin en pixels.
-   Aucune dépendance : l'encodeur PNG tient en quarante lignes et zlib est
-   fourni par Node. Relancer après avoir modifié ICON :
+   Aucune dépendance : l'encodage vit dans tools/png.mjs, partagé avec l'import
+   de planches de sprites. Relancer après avoir modifié ICON :
      node tools/make-icons.mjs
 */
-import { deflateSync } from "node:zlib";
+import { encodePng } from "./png.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,54 +42,6 @@ const PAL = {
 
 const BG = [0x0e, 0x10, 0x20, 255];
 
-/* --- Encodeur PNG minimal ------------------------------------------------ */
-
-const CRC_TABLE = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c;
-  }
-  return t;
-})();
-
-function crc32(buf) {
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function chunk(type, data) {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length);
-  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(body));
-  return Buffer.concat([len, body, crc]);
-}
-
-function png(width, height, rgba) {
-  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;   // 8 bits par canal
-  ihdr[9] = 6;   // RGBA
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0; // filtre « none » : l'image est minuscule
-    rgba.copy(raw, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
-  }
-  return Buffer.concat([
-    sig,
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw, { level: 9 })),
-    chunk("IEND", Buffer.alloc(0))
-  ]);
-}
-
 /* --- Rendu --------------------------------------------------------------- */
 
 function render(size) {
@@ -107,7 +59,7 @@ function render(size) {
       buf[i] = col[0]; buf[i + 1] = col[1]; buf[i + 2] = col[2]; buf[i + 3] = col[3];
     }
   }
-  return png(size, size, buf);
+  return encodePng(size, size, buf);
 }
 
 ICON.forEach((row, i) => {

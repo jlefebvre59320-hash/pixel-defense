@@ -1090,8 +1090,14 @@
 
     /* Dessine une figure. `x, y` est la position de son *ancrage* — les pieds,
        la base, ou le centre selon la figure. `w` est la largeur voulue à
-       l'écran ; la hauteur suit, le dessin n'est jamais déformé. */
+       l'écran ; la hauteur suit, le dessin n'est jamais déformé.
+
+       Si un habillage est chargé et qu'il fournit cette figure, c'est son
+       image qui est posée ; sinon on trace. Le repli est silencieux et par
+       figure : on peut habiller le jeu par morceaux. */
     draw: function (ctx, name, opts) {
+      if (PD.Skin && PD.Skin.draw(ctx, name, opts)) return;
+
       var img = opts.tint
         ? tinted(name, opts.frame || 0, opts.tint)
         : bake(name, opts.frame || 0);
@@ -1117,9 +1123,19 @@
        `w`. Une créature qui marche est ancrée aux pieds, une qui vole l'est au
        centre : sans cette mesure, une barre de vie calée sur la hauteur totale
        flotterait très au-dessus des harpies. */
-    topAt: function (name, w) {
+    topAt: function (name, w, frame) {
+      var f = PD.Skin && PD.Skin.frame(name, frame);
+      if (f) return f.ay * (w / (f.sw || f.w));
       var s = spec(name);
       return s ? s.anchor[1] * (w / s.box[0]) : 0;
+    },
+
+    /* Vrai si cette figure vient de l'habillage plutôt que du tracé. Le rendu
+       s'en sert pour une seule décision : la bouche pivotante de la bombarde.
+       Si l'habillage fournit la tour mais pas la bouche, c'est que le sprite
+       est complet — en poser une par-dessus la doublerait. */
+    skinned: function (name, frame) {
+      return !!(PD.Skin && PD.Skin.frame(name, frame));
     },
 
     /* Repère nommé d'une figure — la bouche d'un canon, l'orbe d'un mage —
