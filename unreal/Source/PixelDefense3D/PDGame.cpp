@@ -80,28 +80,7 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
 }
 }
 
-static UTexture2D* FindKenneyUITexture(const TCHAR* Token)
-{
-    FAssetRegistryModule& Module=
-        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-    TArray<FString> PathsToScan;
-    PathsToScan.Add(TEXT("/Game/ThirdParty/Kenney"));
-    Module.Get().ScanPathsSynchronous(PathsToScan,false);
-    TArray<FAssetData> Assets;
-    Module.Get().GetAssetsByPath(
-        FName(TEXT("/Game/ThirdParty/Kenney")),Assets,true,false);
-    const FString Wanted(Token);
-    for(const FAssetData& Asset:Assets)
-    {
-        if(Asset.AssetClassPath!=UTexture2D::StaticClass()->GetClassPathName())
-            continue;
-        if(Asset.AssetName.ToString().ToLower().Contains(Wanted))
-            return Cast<UTexture2D>(Asset.GetAsset());
-    }
-    return nullptr;
-}
-
-APDVillager::APDVillager()
+static APDVillager::APDVillager()
 {
     PrimaryActorTick.bCanEverTick=true;
     CharacterVisual=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterVisual"));
@@ -794,30 +773,47 @@ void APDPlayerController::TryBuildAtScreen(float X,float Y)
 
 void APDHUD::DrawPanel(float X,float Y,float W,float H,const FLinearColor& Color)
 {
+    if(W>42.f&&H>18.f)
+    {
+        FCanvasTileItem Shadow(FVector2D(X+4.f,Y+5.f),FVector2D(W,H),
+            FLinearColor(.005f,.008f,.012f,.34f));
+        Shadow.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Shadow);
+    }
     FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
     Base.BlendMode=SE_BLEND_Translucent;
     Canvas->DrawItem(Base);
-    if(PanelTexture&&W>105.f&&H>48.f)
+    if(W>70.f&&H>30.f)
     {
-        FCanvasTileItem Art(FVector2D(X,Y),PanelTexture->GetResource(),
-            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.38f));
-        Art.BlendMode=SE_BLEND_Translucent;
-        Canvas->DrawItem(Art);
+        const FLinearColor Highlight(1.f,.82f,.42f,.18f);
+        const FLinearColor Shade(.01f,.02f,.03f,.34f);
+        FCanvasTileItem Top(FVector2D(X+2.f,Y+2.f),FVector2D(W-4.f,2.f),Highlight);
+        FCanvasTileItem Left(FVector2D(X+2.f,Y+4.f),FVector2D(2.f,H-8.f),Highlight);
+        FCanvasTileItem Bottom(FVector2D(X+2.f,Y+H-4.f),FVector2D(W-4.f,2.f),Shade);
+        FCanvasTileItem Right(FVector2D(X+W-4.f,Y+4.f),FVector2D(2.f,H-8.f),Shade);
+        Top.BlendMode=Left.BlendMode=Bottom.BlendMode=Right.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Top); Canvas->DrawItem(Left);
+        Canvas->DrawItem(Bottom); Canvas->DrawItem(Right);
     }
 }
 
 void APDHUD::DrawButton(float X,float Y,float W,float H,const FLinearColor& Color)
 {
-    FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
-    Base.BlendMode=SE_BLEND_Translucent;
-    Canvas->DrawItem(Base);
-    if(ButtonTexture)
-    {
-        FCanvasTileItem Art(FVector2D(X,Y),ButtonTexture->GetResource(),
-            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.82f));
-        Art.BlendMode=SE_BLEND_Translucent;
-        Canvas->DrawItem(Art);
-    }
+    FCanvasTileItem Shadow(FVector2D(X+4.f,Y+5.f),FVector2D(W,H),
+        FLinearColor(.005f,.008f,.012f,.42f));
+    Shadow.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Shadow);
+    FCanvasTileItem Rim(FVector2D(X,Y),FVector2D(W,H),
+        FLinearColor(.72f,.48f,.16f,.94f));
+    Rim.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Rim);
+    FCanvasTileItem Face(FVector2D(X+3.f,Y+3.f),FVector2D(W-6.f,H-7.f),Color);
+    Face.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Face);
+    FCanvasTileItem Shine(FVector2D(X+6.f,Y+6.f),FVector2D(W-12.f,2.f),
+        FLinearColor(1.f,.92f,.68f,.28f));
+    Shine.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Shine);
 }
 
 void APDHUD::DrawLabel(const FString& Text,float X,float Y,
@@ -840,9 +836,6 @@ void APDHUD::DrawHUD()
     const FLinearColor Gold(1.f,.72f,.20f,1.f);
     const FLinearColor Cream(1.f,.95f,.80f,1.f);
     const FLinearColor Green(.25f,.90f,.48f,1.f);
-    if(!PanelTexture) PanelTexture=FindKenneyUITexture(TEXT("panel"));
-    if(!ButtonTexture) ButtonTexture=FindKenneyUITexture(TEXT("button"));
-
     if(!GM->IsGameStarted())
     {
         DrawPanel(0,0,W,H,FLinearColor(.015f,.025f,.045f,.66f));
