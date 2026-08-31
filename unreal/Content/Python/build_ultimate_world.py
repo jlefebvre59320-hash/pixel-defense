@@ -183,8 +183,12 @@ def build_materials():
     unreal.EditorAssetLibrary.make_directory(MATERIAL_PATH)
     make_pbr("M_Ground_ValleyV2", "leafy_grass", (.42, .58, .30, 1), 7.5)
     make_pbr("M_Path_ValleyV3", "grass_path_2", (.92, .72, .46, 1), 4.8)
+    make_pbr("M_Ground_MeadowV3", "leafy_grass", (.58, .70, .42, 1), 8.5)
+    make_pbr("M_Ground_ForestV3", "forrest_ground_01", (.48, .58, .34, 1), 6.0)
+    make_pbr("M_Path_CobbleV4", "grass_path_3", (.78, .66, .50, 1), 5.4)
     make_water()
     make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
+    make_translucent_unlit("M_Cloud_SoftV2", (1.0, .985, .94, 1), .76)
     make_unlit("M_Bird", (.012, .016, .022, 1), .35)
     make_unlit("M_FX_Dust", (1.0, .55, .18, 1), 2.2, True)
     make_unlit("M_FX_Arrow", (1.0, .42, .05, 1), 5.0, True)
@@ -228,7 +232,7 @@ def build_level():
                 (0, 0, 3800), (-42, -28, -18))
     sun_component = actor_component(sun, unreal.DirectionalLightComponent)
     if sun_component:
-        safe_set(sun_component, "intensity", 3.25)
+        safe_set(sun_component, "intensity", 3.55)
         safe_set(sun_component, "light_color", unreal.Color(255, 236, 211))
         safe_set(sun_component, "cast_shadows", True)
         safe_set(sun_component, "mobility", unreal.ComponentMobility.MOVABLE)
@@ -246,7 +250,7 @@ def build_level():
     skylight = spawn(actor_subsystem, unreal.SkyLight, "PD_SkyLight")
     sky_component = actor_component(skylight, unreal.SkyLightComponent)
     if sky_component:
-        safe_set(sky_component, "intensity", .62)
+        safe_set(sky_component, "intensity", .88)
         safe_set(sky_component, "mobility", unreal.ComponentMobility.MOVABLE)
         hdri = find_asset("TextureCube", "kloofendal_48d_partly_cloudy_puresky")
         if hdri:
@@ -261,7 +265,7 @@ def build_level():
                 (0, 0, -100))
     fog_component = actor_component(fog, unreal.ExponentialHeightFogComponent)
     if fog_component:
-        safe_set(fog_component, "fog_density", .0024)
+        safe_set(fog_component, "fog_density", .0016)
         safe_set(fog_component, "fog_height_falloff", .30)
         safe_set(fog_component, "fog_inscattering_color",
                  unreal.LinearColor(.42, .52, .62, 1))
@@ -282,7 +286,7 @@ def build_level():
     settings = post.get_editor_property("settings")
     for name, value in (
         ("override_bloom_intensity", True),
-        ("bloom_intensity", .18),
+        ("bloom_intensity", .28),
         ("override_vignette_intensity", True),
         ("vignette_intensity", .22),
         ("override_auto_exposure_min_brightness", True),
@@ -290,9 +294,9 @@ def build_level():
         ("override_auto_exposure_max_brightness", True),
         ("auto_exposure_max_brightness", 1.0),
         ("override_auto_exposure_bias", True),
-        ("auto_exposure_bias", -0.15),
+        ("auto_exposure_bias", .08),
         ("override_color_saturation", True),
-        ("color_saturation", unreal.Vector4(.92, .98, .88, 1.0)),
+        ("color_saturation", unreal.Vector4(1.02, 1.03, .98, 1.0)),
         ("override_color_contrast", True),
         ("color_contrast", unreal.Vector4(1.16, 1.16, 1.16, 1.0)),
     ):
@@ -314,5 +318,5 @@ def build_level():
 
 build_materials()
 summary = build_level()
-summary["materials"] = 13
+summary["materials"] = 17
 print("ULTIMATE_WORLD_JSON " + json.dumps(summary, ensure_ascii=False))

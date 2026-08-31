@@ -9,6 +9,7 @@
 
 class UStaticMeshComponent;
 class USkeletalMeshComponent;
+class UTexture2D;
 class UAnimSequence;
 
 UENUM(BlueprintType)
@@ -18,6 +19,28 @@ enum class EPDTowerKind : uint8
     Frost,
     Bombard,
     Mage
+};
+
+UCLASS()
+class PIXELDEFENSE3D_API APDVillager : public AActor
+{
+    GENERATED_BODY()
+public:
+    APDVillager();
+    virtual void Tick(float DeltaSeconds) override;
+    void InitVillager(const FVector& InA,const FVector& InB,FName MeshName,float InPhase);
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) USkeletalMeshComponent* CharacterVisual;
+
+private:
+    FVector PointA=FVector::ZeroVector;
+    FVector PointB=FVector::ZeroVector;
+    bool bGoingToB=true;
+    float Speed=92.f;
+    float PauseRemaining=0.f;
+    UPROPERTY() UAnimSequence* WalkAnimation=nullptr;
+    UPROPERTY() UAnimSequence* IdleAnimation=nullptr;
+    void PlayLoop(UAnimSequence* Animation);
 };
 
 UCLASS()
@@ -139,6 +162,7 @@ private:
     bool bPauseMenuOpen=false;
     void SpawnEnemy();
     void CreateBuildPads();
+    void CreateVillagers();
     void CreateCamera();
 };
 
@@ -188,6 +212,9 @@ public:
 
 private:
     void DrawPanel(float X,float Y,float W,float H,const FLinearColor& Color);
+    void DrawButton(float X,float Y,float W,float H,const FLinearColor& Color);
     void DrawLabel(const FString& Text,float X,float Y,const FLinearColor& Color,
                    float Scale=1.f);
+    UPROPERTY() UTexture2D* PanelTexture=nullptr;
+    UPROPERTY() UTexture2D* ButtonTexture=nullptr;
 };
