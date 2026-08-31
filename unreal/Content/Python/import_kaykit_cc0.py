@@ -194,7 +194,10 @@ unreal.EditorAssetLibrary.save_directory(
 
 counts = collections.Counter()
 for path in imported_paths:
-    for pack in PACKS + ("PolyHaven", "KenneyUI"):
+    if "/Kenney/" in path:
+        counts["KenneyUI"] += 1
+        continue
+    for pack in PACKS + ("PolyHaven",):
         if f"/{pack}/" in path:
             counts[pack] += 1
             break
