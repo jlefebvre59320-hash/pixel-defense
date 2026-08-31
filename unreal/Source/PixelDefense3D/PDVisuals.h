@@ -74,6 +74,9 @@ private:
     UPROPERTY() UStaticMeshComponent* Water;
     UPROPERTY() UStaticMeshComponent* Castle;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Path;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* PathJunctions;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* GroundPatches;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Cliffs;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesA;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesB;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* TreesC;
@@ -81,6 +84,8 @@ private:
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Meadow;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Rocks;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Houses;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* HousesB;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* HousesC;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Walls;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Gateways;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Props;
