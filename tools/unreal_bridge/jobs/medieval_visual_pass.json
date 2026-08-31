@@ -1,0 +1,21 @@
+{
+  "name": "medieval_visual_pass",
+  "description": "Contrôle Unreal puis prépare la structure d'art et une scène médiévale placeholder conforme à la direction artistique premium mobile.",
+  "steps": [
+    {
+      "name": "Contrôle du moteur",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true
+    },
+    {
+      "name": "Setup direction artistique médiévale",
+      "script": "unreal/Content/Python/setup_medieval_art_direction.py",
+      "params": {
+        "level_path": "/Game/Maps/MedievalArtDirection",
+        "new_level": true,
+        "save": true
+      },
+      "timeout": 300
+    }
+  ]
+}

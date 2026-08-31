@@ -1,0 +1,19 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "Pixel Defense 3D - mobile stylized tower defense",
+  "Modules": [
+    {
+      "Name": "PixelDefense3D",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    { "Name": "PythonScriptPlugin", "Enabled": true },
+    { "Name": "EditorScriptingUtilities", "Enabled": true },
+    { "Name": "RemoteControl", "Enabled": true },
+    { "Name": "Niagara", "Enabled": true }
+  ]
+}

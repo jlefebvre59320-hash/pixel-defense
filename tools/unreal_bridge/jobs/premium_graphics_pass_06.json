@@ -1,0 +1,17 @@
+{
+  "name": "premium_graphics_pass_06",
+  "description": "Contrôle Unreal puis applique la passe visuelle médiévale premium à /Game/Maps/MedievalArtDirection.",
+  "steps": [
+    {
+      "name": "Contrôle du moteur",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true,
+      "comment": "Le contrôle est informatif ; la passe graphique continue avec les fonctions disponibles."
+    },
+    {
+      "name": "Passe graphique premium",
+      "script": "unreal/Content/Python/premium_graphics_pass_06.py",
+      "params": {}
+    }
+  ]
+}
