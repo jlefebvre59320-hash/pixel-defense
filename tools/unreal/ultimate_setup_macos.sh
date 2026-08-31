@@ -30,6 +30,12 @@ fi
 echo "[1/4] Téléchargement des packs CC0..."
 bash "$REPO_ROOT/tools/assets/fetch_kaykit_cc0.sh"
 
+if [ -d "$REPO_ROOT/unreal/ExternalAssets/Quaternius" ]; then
+  echo "Packs Quaternius détectés: ils seront importés automatiquement."
+else
+  echo "Option visuelle: bash tools/assets/install_quaternius_cc0_macos.sh"
+fi
+
 echo "[2/4] Compilation PixelDefense3D..."
 "$BUILD_SCRIPT" PixelDefense3DEditor Mac Development "$UPROJECT" -WaitMutex
 
