@@ -143,7 +143,9 @@ void APDProjectile::Init(APDEnemy* InTarget,EPDTowerKind InKind,float InDamage,
     Start=GetActorLocation();
     LastTarget=InTarget?InTarget->GetActorLocation()+FVector(0,0,80):Start;
     Glow->SetLightColor(KindColor(Kind));
-    Glow->SetIntensity(Kind==EPDTowerKind::Mage?2600.f:1500.f);
+    Glow->SetAttenuationRadius(Kind==EPDTowerKind::Mage?520.f:420.f);
+    Glow->SetIntensity(Kind==EPDTowerKind::Mage?5200.f:
+        (Kind==EPDTowerKind::Bombard?3800.f:2600.f));
     if(UMaterialInterface* Material=LoadMaterial(KindMaterial(Kind)))
         Visual->SetMaterial(0,Material);
 
@@ -155,15 +157,15 @@ void APDProjectile::Init(APDEnemy* InTarget,EPDTowerKind InKind,float InDamage,
             { Visual->SetStaticMesh(Arrow); SetActorScale3D(FVector(1.f)); }
             break;
         case EPDTowerKind::Frost:
-            Speed=1050.f; SetActorScale3D(FVector(.18f)); break;
+            Speed=1050.f; SetActorScale3D(FVector(.26f)); break;
         case EPDTowerKind::Bombard:
-            Speed=850.f; ArcHeight=520.f; SetActorScale3D(FVector(.28f));
+            Speed=850.f; ArcHeight=560.f; SetActorScale3D(FVector(.40f));
             if(UStaticMesh* Stone=FindProductionAsset<UStaticMesh>(
                 FName(TEXT("projectile_catapult"))))
-            { Visual->SetStaticMesh(Stone); SetActorScale3D(FVector(1.4f)); }
+            { Visual->SetStaticMesh(Stone); SetActorScale3D(FVector(1.8f)); }
             break;
         case EPDTowerKind::Mage:
-            Speed=2600.f; SetActorScale3D(FVector(.22f)); break;
+            Speed=2600.f; SetActorScale3D(FVector(.34f)); break;
     }
     TravelTime=FMath::Clamp(FVector::Distance(Start,LastTarget)/Speed,.12f,1.2f);
     SetLifeSpan(2.f);
@@ -223,9 +225,12 @@ void APDImpactFX::Init(EPDTowerKind InKind)
     if(UMaterialInterface* Material=LoadMaterial(KindMaterial(InKind)))
         Visual->SetMaterial(0,Material);
     Glow->SetLightColor(KindColor(InKind));
-    Glow->SetIntensity(InKind==EPDTowerKind::Bombard?5200.f:3000.f);
-    FinalScale=InKind==EPDTowerKind::Bombard?3.8f:
-        (InKind==EPDTowerKind::Mage?2.4f:1.8f);
+    Glow->SetAttenuationRadius(InKind==EPDTowerKind::Bombard?760.f:580.f);
+    Glow->SetIntensity(InKind==EPDTowerKind::Bombard?9000.f:
+        (InKind==EPDTowerKind::Mage?7600.f:5200.f));
+    FinalScale=InKind==EPDTowerKind::Bombard?5.4f:
+        (InKind==EPDTowerKind::Mage?3.5f:
+        (InKind==EPDTowerKind::Frost?2.7f:2.0f));
     SetActorScale3D(FVector(.08f));
     SetLifeSpan(Duration+.05f);
 }
@@ -237,7 +242,7 @@ void APDImpactFX::Tick(float DeltaSeconds)
     const float Alpha=FMath::Clamp(Age/Duration,0.f,1.f);
     const float Pulse=FMath::Sin(Alpha*PI);
     SetActorScale3D(FVector(FMath::Lerp(.08f,FinalScale,Alpha)));
-    Glow->SetIntensity(4200.f*Pulse);
+    Glow->SetIntensity(8200.f*Pulse);
 }
 
 APDEnvironment::APDEnvironment()
