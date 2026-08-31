@@ -580,7 +580,7 @@ void APDEnvironment::BuildAmbientFX()
         Dust->SetMaterial(0,Material);
     if(UMaterialInterface* Material=LoadMaterial(TEXT("M_Bird")))
         Birds->SetMaterial(0,Material);
-    if(UMaterialInterface* Material=LoadMaterial(TEXT("M_Cloud")))
+    if(UMaterialInterface* Material=LoadMaterial(TEXT("M_Cloud_SoftV2")))
         Clouds->SetMaterial(0,Material);
 
     FRandomStream Random(4242);
@@ -608,14 +608,23 @@ void APDEnvironment::BuildAmbientFX()
     }
     if(CloudMesh)
     {
-        for(int32 Index=0;Index<7;++Index)
+        for(int32 Cluster=0;Cluster<5;++Cluster)
         {
-            const FVector Origin(-4400.f+Index*1450.f,
-                Random.FRandRange(900,2400),Random.FRandRange(1350,1750));
-            CloudOrigins.Add(Origin); CloudSpeeds.Add(Random.FRandRange(14.f,24.f));
-            const float Scale=Random.FRandRange(.65f,1.0f);
-            Clouds->AddInstance(FTransform(FRotator(0,Random.FRandRange(0,360),0),
-                Origin,FVector(3.4f*Scale,1.8f*Scale,.42f*Scale)));
+            const FVector Center(-4100.f+Cluster*2050.f,
+                Random.FRandRange(1150,2450),Random.FRandRange(1420,1770));
+            const float Drift=Random.FRandRange(11.f,19.f);
+            for(int32 Blob=0;Blob<3;++Blob)
+            {
+                const FVector Origin=Center+FVector(
+                    (Blob-1)*170.f,Blob==1?0.f:55.f,Blob==1?75.f:0.f);
+                CloudOrigins.Add(Origin); CloudSpeeds.Add(Drift);
+                const float Scale=Random.FRandRange(.72f,1.04f);
+                Clouds->AddInstance(FTransform(
+                    FRotator(0,Random.FRandRange(0,360),0),Origin,
+                    FVector((Blob==1?3.2f:2.45f)*Scale,
+                            (Blob==1?1.7f:1.3f)*Scale,
+                            (Blob==1?.62f:.48f)*Scale)));
+            }
         }
     }
 }
@@ -669,10 +678,13 @@ void APDEnvironment::Tick(float DeltaSeconds)
         FVector P=CloudOrigins[Index];
         P.X=FMath::Fmod(P.X+Time*CloudSpeeds[Index]+4500.f,9000.f)-4500.f;
         P.Z+=FMath::Sin(Time*.08f+Index)*35.f;
-        const float Scale=.78f+.08f*(Index%4);
+        const int32 Blob=Index%3;
+        const float Scale=.82f+.06f*(Index%5);
         Clouds->UpdateInstanceTransform(Index,
-            FTransform(FRotator(0,Index*37.f,0),P,
-                FVector(3.6f*Scale,1.9f*Scale,.46f*Scale)),
+            FTransform(FRotator(0,Index*29.f,0),P,
+                FVector((Blob==1?3.2f:2.45f)*Scale,
+                        (Blob==1?1.7f:1.3f)*Scale,
+                        (Blob==1?.62f:.48f)*Scale)),
             false,false,true);
     }
     for(int32 Index=0;Index<TorchLights.Num();++Index)
