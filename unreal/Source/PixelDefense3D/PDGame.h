@@ -141,6 +141,8 @@ public:
     bool IsGameStarted() const { return bGameStarted; }
     bool IsPauseMenuOpen() const { return bPauseMenuOpen; }
     bool IsWaveActive() const { return bWaveActive; }
+    bool IsPreparing() const { return bGameStarted && !bWaveActive && Wave==0; }
+    float GetWaveCountdown() const { return FMath::Max(0.f,BreakCooldown); }
     int32 GetBuiltTowerCount() const { return BuiltTowerCount; }
 
     UPROPERTY(BlueprintReadOnly) int32 Gold=130;
