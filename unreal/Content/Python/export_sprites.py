@@ -36,6 +36,10 @@ except ImportError:
     unreal = None
 
 DEFAULTS = {
+    # Où chercher les maillages quand une figure est décrite par mots-clés
+    # plutôt que par un chemin. C'est là qu'atterrissent les packs importés
+    # par import_kaykit_cc0.py.
+    "search_paths": ["/Game/ThirdParty", "/Game/Art"],
     "out_dir": "",                    # vide = <projet>/Saved/Sprites
     "size": 512,                      # côté du PNG, en pixels
     "frame_cm": 300.0,                # côté de la boîte de cadrage, en centimètres
@@ -250,32 +254,145 @@ def make_backdrop(p, origin, fwd):
     return actor
 
 
+# --- Trouver le bon maillage dans les packs ----------------------------------
+
+_CATALOGUE = {"paths": None}
+
+# Maillage déjà retenu -> figure qui l'a pris. Sert à écarter *doucement* un
+# maillage d'une autre figure : deux tours différentes qui se retrouvent avec
+# le même modèle est le défaut le plus facile à ne pas voir, et le plus laid
+# une fois en jeu. La pénalité reste faible pour qu'un pack pauvre puisse
+# quand même réutiliser un modèle plutôt que de ne rien rendre.
+_TAKEN = {}
+
+
+def catalogue(p):
+    """Tous les maillages sous les dossiers de recherche, une fois pour toutes.
+
+    Le registre d'assets d'abord — c'est lui qui connaît les classes sans
+    charger les objets — et EditorAssetLibrary en repli.
+    """
+    if _CATALOGUE["paths"] is not None:
+        return _CATALOGUE["paths"]
+
+    found = []
+    helpers = getattr(unreal, "AssetRegistryHelpers", None)
+    registry = _safe("registre des assets", helpers.get_asset_registry) if helpers else None
+
+    for root in p["search_paths"]:
+        if registry is not None and hasattr(registry, "get_assets_by_path"):
+            for data in _safe("parcours de %s" % root,
+                              registry.get_assets_by_path, root, True, False) or []:
+                cls = getattr(data, "asset_class_path", None)
+                name = str(getattr(cls, "asset_name", "") or getattr(data, "asset_class", ""))
+                if name in ("StaticMesh", "SkeletalMesh"):
+                    found.append(str(getattr(data, "package_name", "")))
+            continue
+
+        lib = getattr(unreal, "EditorAssetLibrary", None)
+        if lib is not None and hasattr(lib, "list_assets"):
+            found.extend(str(r) for r in
+                         (_safe("parcours de %s" % root, lib.list_assets, root, True, False) or []))
+
+    _CATALOGUE["paths"] = sorted(set(found))
+    return _CATALOGUE["paths"]
+
+
+def best_match(p, words, avoid=(), figure=None):
+    """Le maillage dont le nom colle le mieux aux mots-clés.
+
+    Les chemins exacts d'un pack ne se devinent pas depuis l'extérieur — ils
+    dépendent de l'arborescence du pack et de sa version. Une figure se décrit
+    donc par ce qu'on cherche (« building », « tower »), et c'est le moteur,
+    qui a les packs sous la main, qui tranche.
+
+    À score égal, **le nom le plus court gagne** : sans ce départage,
+    « building_tower » et « building_mage_tower » valaient pareil pour
+    ["building", "tower"], et deux tours différentes du jeu se retrouvaient
+    avec le même maillage. Un nom court porte moins de mots non demandés,
+    donc colle mieux.
+    """
+    best, best_score, best_len = None, 0, 0
+    for path in catalogue(p):
+        low = path.lower()
+        leaf = low.rsplit("/", 1)[-1]
+
+        score = 0
+        for w in words:
+            w = w.lower()
+            if w in leaf:
+                score += 2          # dans le nom du fichier : le signal fort
+            elif w in low:
+                score += 1          # ailleurs dans le chemin
+        for w in avoid:
+            if w.lower() in leaf:
+                score -= 3          # écarter explicitement
+        holder = _TAKEN.get(path)
+        if holder is not None and holder != figure:
+            score -= 1              # déjà pris par une autre figure
+
+        if score <= 0:
+            continue
+        if score > best_score or (score == best_score and len(leaf) < best_len):
+            best, best_score, best_len = path, score, len(leaf)
+    return best, best_score
+
+
+def resolve(p, fig):
+    """Chemin du maillage d'une figure : explicite, ou trouvé par mots-clés."""
+    if fig.get("asset"):
+        return fig["asset"], "chemin donné"
+    words = fig.get("match")
+    if not words:
+        return None, "ni « asset » ni « match »"
+    path, score = best_match(p, words, fig.get("avoid", ()), fig.get("name"))
+    if path is None:
+        return None, "aucun maillage ne correspond à %s" % (", ".join(words))
+    _TAKEN.setdefault(path, fig.get("name"))
+    return path, "trouvé (%d pts) : %s" % (score, path)
+
+
+def actor_class_for(asset):
+    """Les décors sont statiques, les personnages ont un squelette."""
+    if type(asset).__name__ == "SkeletalMesh":
+        return getattr(unreal, "SkeletalMeshActor", None), "skeletal_mesh_component"
+    return getattr(unreal, "StaticMeshActor", None), "static_mesh_component"
+
+
 # --- Une figure --------------------------------------------------------------
 
 
 def capture_figure(p, world, stage, fig, out_dir):
     """Place le maillage, cadre, photographie, retire. Renvoie le nom du PNG."""
-    ref = fig.get("asset")
     name = fig.get("name") or "sans-nom"
     frame = fig.get("frame", 0)
+
+    ref, how = resolve(p, fig)
+    if ref is None:
+        _warn("%s : %s" % (name, how))
+        return None, how
 
     mesh = _safe("chargement de %s" % ref, unreal.load_asset, ref)
     if mesh is None:
         _warn("%s : maillage introuvable (%s)" % (name, ref))
-        return None
+        return None, "introuvable : %s" % ref
 
+    cls, comp_prop = actor_class_for(mesh)
     origin = stage["origin"]
-    actor = spawn(getattr(unreal, "StaticMeshActor", None), origin,
-                  unreal.Rotator(0.0, 0.0, float(fig.get("yaw", 0.0))))
+    actor = spawn(cls, origin, unreal.Rotator(0.0, 0.0, float(fig.get("yaw", 0.0))))
     if actor is None:
-        return None
+        return None, "placement impossible"
 
     try:
         _safe("nom du sujet", actor.set_actor_label, "Sprite_%s_%s" % (name, frame))
-        comp = _safe("composant du sujet", actor.get_editor_property, "static_mesh_component")
+        comp = _safe("composant du sujet", actor.get_editor_property, comp_prop)
         if comp is not None:
             _safe("mobilité du sujet", comp.set_mobility, _enum("ComponentMobility", "MOVABLE"))
-            _safe("maillage du sujet", comp.set_static_mesh, mesh)
+            setter = getattr(comp, "set_static_mesh", None) or getattr(comp, "set_skeletal_mesh", None)
+            if setter is None:
+                _warn("%s : ce composant n'accepte pas de maillage." % name)
+            else:
+                _safe("maillage du sujet", setter, mesh)
 
         scale = float(fig.get("scale", 1.0))
         _safe("échelle du sujet", actor.set_actor_scale3d,
@@ -298,7 +415,7 @@ def capture_figure(p, world, stage, fig, out_dir):
 
         comp_cap = stage["component"]
         if comp_cap is None:
-            return None
+            return None, "pas de composant de capture"
 
         # La capture ne voit que le plateau : le niveau ouvert n'a pas à
         # apparaître derrière les sprites.
@@ -310,13 +427,13 @@ def capture_figure(p, world, stage, fig, out_dir):
         _safe("acteurs visibles", comp_cap.set_editor_property, "show_only_actors", visible)
 
         if _safe("prise de vue", comp_cap.capture_scene) is None:
-            return None
+            return None, "prise de vue refusée"
 
         filename = "%s@%s" % (name, frame)
         if _safe("écriture du PNG", unreal.RenderingLibrary.export_render_target,
                  world, stage["target"], out_dir, filename + ".png") is None:
-            return None
-        return filename + ".png"
+            return None, "écriture refusée"
+        return filename + ".png", how
     finally:
         destroy(actor)
 
@@ -340,6 +457,7 @@ def main():
 
     print("--- Capture de sprites ---")
     print("Sortie   : %s" % out_dir)
+    print("Recherche: %s" % ", ".join(p["search_paths"]))
     print("Cadrage  : %g cm, %d px, vue %g° / %g°"
           % (p["frame_cm"], p["size"], p["pitch"], p["yaw"]))
     print("Figures  : %d" % len(figures))
@@ -354,8 +472,8 @@ def main():
     try:
         for fig in figures:
             name = fig.get("name", "?")
-            out = capture_figure(p, world, stage, fig, out_dir)
-            print("  %-24s %s" % (name, out or "— non capturé"))
+            out, how = capture_figure(p, world, stage, fig, out_dir)
+            print("  %-22s %-14s %s" % (name, out or "— non capturé", how))
             if out:
                 written.append(out)
     finally:

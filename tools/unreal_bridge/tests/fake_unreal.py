@@ -139,6 +139,36 @@ class StaticMeshActor(Actor):
         self.static_mesh_component = StaticMeshComponent()
 
 
+class SkeletalMesh:
+    def __init__(self, path):
+        self.path = path
+
+    def __repr__(self):
+        return "SkeletalMesh(%s)" % self.path
+
+
+class SkeletalMeshComponent:
+    def __init__(self):
+        self.mobility = ComponentMobility.MOVABLE
+        self.skeletal_mesh = None
+
+    def set_mobility(self, mobility):
+        self.mobility = mobility
+
+    def set_skeletal_mesh(self, mesh):
+        if not isinstance(mesh, SkeletalMesh):
+            raise TypeError("set_skeletal_mesh attend un SkeletalMesh")
+        self.skeletal_mesh = mesh
+
+
+class SkeletalMeshActor(Actor):
+    kind = "SkeletalMeshActor"
+
+    def __init__(self, location, rotation):
+        super().__init__(location, rotation)
+        self.skeletal_mesh_component = SkeletalMeshComponent()
+
+
 class PlayerStart(Actor):
     kind = "PlayerStart"
 
@@ -412,16 +442,26 @@ _ASSETS = {
     "/Engine/BasicShapes/Plane.Plane",
 }
 
-# Pack factice : de quoi jouer l'inventaire et l'export sans moteur. Les noms
-# reprennent la convention d'un pack du commerce.
-PACK = ["/Game/Pack/Meshes/SM_" + n for n in (
-    "Goblin", "Wolf", "Orc", "Harpy", "Troll",
-    "ArcherTower_01", "ArcherTower_02", "ArcherTower_03",
-    "Bombard_01", "Bombard_02", "Bombard_03",
-    "FrostTower_01", "FrostTower_02", "FrostTower_03",
-    "MageTower_01", "MageTower_02", "MageTower_03",
-    "Tree", "Rock", "Castle", "CaveEntrance",
+# Packs factices : l'arborescence et les noms reprennent ceux des packs CC0
+# KayKit tels que les importe import_kaykit_cc0.py. C'est ce qui permet de
+# vérifier la résolution par mots-clés — sans elle, on testerait une recherche
+# sur des noms écrits pour qu'elle réussisse.
+SKELETAL = ["/Game/ThirdParty/KayKit/Skeletons/Characters/" + n for n in (
+    "Skeleton_Minion", "Skeleton_Rogue", "Skeleton_Warrior", "Skeleton_Mage",
+)] + ["/Game/ThirdParty/KayKit/Adventurers/Characters/" + n for n in (
+    "Barbarian", "Knight", "Mage", "Rogue",
 )]
+
+STATIC = ["/Game/ThirdParty/KayKit/MedievalHexagon/Models/" + n for n in (
+    "building_watchtower", "building_tower", "building_castle",
+    "building_smelter", "building_mine", "building_wall_tower",
+    "building_well", "building_church", "building_cathedral",
+    "building_wizard_tower", "building_mage_tower", "building_tower_spire",
+    "trees_A_medium", "trees_B_large", "rocks_A", "rocks_B",
+    "gate_A", "hex_grass", "hex_road_A", "hex_water",
+)]
+
+PACK = STATIC + SKELETAL
 
 _MATERIALS = {"/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"}
 
@@ -434,7 +474,9 @@ class Material:
 def load_asset(path):
     if path in _MATERIALS:
         return Material(path)
-    if path in _ASSETS or path in PACK:
+    if path in SKELETAL:
+        return SkeletalMesh(path)
+    if path in _ASSETS or path in STATIC:
         return StaticMesh(path)
     return None
 

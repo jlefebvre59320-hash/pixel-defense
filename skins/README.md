@@ -11,7 +11,6 @@ redistribuent pas. Chacun engendre le sien.
 
 ```
 # 1. dans l'éditeur Unreal — voir tools/unreal_bridge/README.md
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/list_pack.json
 python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
 
 # 2. hors du moteur
@@ -62,7 +61,12 @@ signifie « milieu du bord bas ».
 
 ## Licence des packs
 
-Vérifiez la licence de votre pack **avant** de publier le jeu. Beaucoup de
+Les packs du projet Unreal — KayKit et Poly Haven, listés dans
+[`THIRD_PARTY_ASSETS.md`](../THIRD_PARTY_ASSETS.md) — sont **en CC0**. Rien
+n'interdit d'en tirer des sprites pour le jeu web ; le crédit à Kay Lousberg
+et la mention « Powered by Poly Haven » restent de mise.
+
+Pour tout autre pack, vérifiez la licence **avant** de publier. Beaucoup de
 packs Unreal sont vendus pour un usage *dans le moteur* ; en sortir des sprites
 pour un jeu HTML n'est pas toujours permis, et cela varie d'un vendeur à
-l'autre. C'est votre pack et votre décision — mais ne sautez pas l'étape.
+l'autre.

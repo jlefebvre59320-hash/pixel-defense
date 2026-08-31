@@ -1,6 +1,6 @@
 {
   "name": "export_sprites",
-  "description": "Photographie les maillages d'un pack en vue 3/4 orthographique, un PNG par figure du jeu.",
+  "description": "Photographie les maillages des packs CC0 importés en vue 3/4 orthographique, un PNG par figure du jeu web.",
   "steps": [
     {
       "name": "Contrôle du moteur",
@@ -10,43 +10,249 @@
     {
       "name": "Capture des sprites",
       "script": "unreal/Content/Python/export_sprites.py",
-      "timeout": 900,
-      "comment": "Remplacez chaque « asset » par le chemin réel dans votre pack — lancez d'abord le travail list_pack pour les connaître. « frame » est la variante : 0/1 pour la marche, 1/2/3 pour le niveau d'une tour.",
+      "timeout": 1200,
+      "comment": "Chaque figure est décrite par des mots-clés (« match »), pas par un chemin : les chemins exacts dépendent de l'arborescence des packs KayKit, et c'est le moteur qui les connaît. Le compte rendu dit, figure par figure, quel maillage a été retenu et avec quel score — corrigez les mots-clés, ajoutez « avoid », ou forcez un chemin avec « asset », d'après ce qu'il annonce. L'ordre compte : à égalité, la première figure servie garde le maillage, d'où la forteresse en tête. L'inventaire complet s'obtient avec le travail production_asset_inventory_09.",
       "params": {
+        "search_paths": [
+          "/Game/ThirdParty",
+          "/Game/Art"
+        ],
         "size": 512,
         "frame_cm": 300.0,
         "pitch": -32.0,
         "yaw": 45.0,
-        "background": [1.0, 0.0, 1.0],
+        "background": [
+          1.0,
+          0.0,
+          1.0
+        ],
         "figures": [
-          { "name": "crawler", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Goblin", "yaw": 0 },
-          { "name": "crawler", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Goblin", "yaw": 12 },
-          { "name": "swarm", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Wolf", "yaw": 0 },
-          { "name": "swarm", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Wolf", "yaw": 12 },
-          { "name": "armored", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Orc", "yaw": 0 },
-          { "name": "armored", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Orc", "yaw": 12 },
-          { "name": "flyer", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Harpy", "yaw": 0 },
-          { "name": "flyer", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Harpy", "yaw": 12 },
-          { "name": "boss", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Troll", "yaw": 0, "scale": 1.8 },
-          { "name": "boss", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Troll", "yaw": 12, "scale": 1.8 },
-
-          { "name": "tower_gun", "frame": 1, "asset": "/Game/Pack/Meshes/SM_ArcherTower_01" },
-          { "name": "tower_gun", "frame": 2, "asset": "/Game/Pack/Meshes/SM_ArcherTower_02" },
-          { "name": "tower_gun", "frame": 3, "asset": "/Game/Pack/Meshes/SM_ArcherTower_03" },
-          { "name": "tower_cannon", "frame": 1, "asset": "/Game/Pack/Meshes/SM_Bombard_01" },
-          { "name": "tower_cannon", "frame": 2, "asset": "/Game/Pack/Meshes/SM_Bombard_02" },
-          { "name": "tower_cannon", "frame": 3, "asset": "/Game/Pack/Meshes/SM_Bombard_03" },
-          { "name": "tower_frost", "frame": 1, "asset": "/Game/Pack/Meshes/SM_FrostTower_01" },
-          { "name": "tower_frost", "frame": 2, "asset": "/Game/Pack/Meshes/SM_FrostTower_02" },
-          { "name": "tower_frost", "frame": 3, "asset": "/Game/Pack/Meshes/SM_FrostTower_03" },
-          { "name": "tower_tesla", "frame": 1, "asset": "/Game/Pack/Meshes/SM_MageTower_01" },
-          { "name": "tower_tesla", "frame": 2, "asset": "/Game/Pack/Meshes/SM_MageTower_02" },
-          { "name": "tower_tesla", "frame": 3, "asset": "/Game/Pack/Meshes/SM_MageTower_03" },
-
-          { "name": "tree", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Tree" },
-          { "name": "rock", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Rock" },
-          { "name": "core", "frame": 0, "asset": "/Game/Pack/Meshes/SM_Castle", "scale": 1.6 },
-          { "name": "cave", "frame": 0, "asset": "/Game/Pack/Meshes/SM_CaveEntrance" }
+          {
+            "name": "core",
+            "frame": 0,
+            "match": [
+              "building",
+              "castle"
+            ],
+            "scale": 1.6,
+            "avoid": [
+              "wall"
+            ]
+          },
+          {
+            "name": "crawler",
+            "frame": 0,
+            "match": [
+              "skeleton",
+              "minion"
+            ],
+            "yaw": 0
+          },
+          {
+            "name": "crawler",
+            "frame": 1,
+            "match": [
+              "skeleton",
+              "minion"
+            ],
+            "yaw": 14
+          },
+          {
+            "name": "swarm",
+            "frame": 0,
+            "match": [
+              "skeleton",
+              "rogue"
+            ],
+            "yaw": 0
+          },
+          {
+            "name": "swarm",
+            "frame": 1,
+            "match": [
+              "skeleton",
+              "rogue"
+            ],
+            "yaw": 14
+          },
+          {
+            "name": "armored",
+            "frame": 0,
+            "match": [
+              "skeleton",
+              "warrior"
+            ],
+            "yaw": 0
+          },
+          {
+            "name": "armored",
+            "frame": 1,
+            "match": [
+              "skeleton",
+              "warrior"
+            ],
+            "yaw": 14
+          },
+          {
+            "name": "flyer",
+            "frame": 0,
+            "match": [
+              "skeleton",
+              "mage"
+            ],
+            "yaw": 0
+          },
+          {
+            "name": "flyer",
+            "frame": 1,
+            "match": [
+              "skeleton",
+              "mage"
+            ],
+            "yaw": 14
+          },
+          {
+            "name": "boss",
+            "frame": 0,
+            "match": [
+              "barbarian"
+            ],
+            "yaw": 0,
+            "scale": 1.8
+          },
+          {
+            "name": "boss",
+            "frame": 1,
+            "match": [
+              "barbarian"
+            ],
+            "yaw": 14,
+            "scale": 1.8
+          },
+          {
+            "name": "tower_gun",
+            "frame": 1,
+            "match": [
+              "building",
+              "watchtower"
+            ]
+          },
+          {
+            "name": "tower_gun",
+            "frame": 2,
+            "match": [
+              "building",
+              "tower"
+            ],
+            "avoid": [
+              "mage",
+              "wizard",
+              "watch"
+            ]
+          },
+          {
+            "name": "tower_gun",
+            "frame": 3,
+            "match": [
+              "building",
+              "castle"
+            ]
+          },
+          {
+            "name": "tower_cannon",
+            "frame": 1,
+            "match": [
+              "building",
+              "smelter"
+            ]
+          },
+          {
+            "name": "tower_cannon",
+            "frame": 2,
+            "match": [
+              "building",
+              "mine"
+            ]
+          },
+          {
+            "name": "tower_cannon",
+            "frame": 3,
+            "match": [
+              "building",
+              "wall",
+              "tower"
+            ]
+          },
+          {
+            "name": "tower_frost",
+            "frame": 1,
+            "match": [
+              "building",
+              "well"
+            ]
+          },
+          {
+            "name": "tower_frost",
+            "frame": 2,
+            "match": [
+              "building",
+              "church"
+            ]
+          },
+          {
+            "name": "tower_frost",
+            "frame": 3,
+            "match": [
+              "building",
+              "cathedral"
+            ]
+          },
+          {
+            "name": "tower_tesla",
+            "frame": 1,
+            "match": [
+              "building",
+              "wizard"
+            ]
+          },
+          {
+            "name": "tower_tesla",
+            "frame": 2,
+            "match": [
+              "building",
+              "mage"
+            ]
+          },
+          {
+            "name": "tower_tesla",
+            "frame": 3,
+            "match": [
+              "building",
+              "tower",
+              "spire"
+            ]
+          },
+          {
+            "name": "tree",
+            "frame": 0,
+            "match": [
+              "tree"
+            ]
+          },
+          {
+            "name": "rock",
+            "frame": 0,
+            "match": [
+              "rock"
+            ]
+          },
+          {
+            "name": "cave",
+            "frame": 0,
+            "match": [
+              "gate"
+            ]
+          }
         ]
       }
     }

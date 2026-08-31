@@ -145,23 +145,30 @@ n'a pas pu travailler (aucun éditeur, fichier introuvable, JSON invalide).
 | --- | --- |
 | [`unreal/Content/Python/healthcheck.py`](../../unreal/Content/Python/healthcheck.py) | Ne modifie rien. Version du moteur, projet ouvert, sous-systèmes d'édition disponibles. Sort en erreur s'il manque une capacité. |
 | [`unreal/Content/Python/build_test_arena.py`](../../unreal/Content/Python/build_test_arena.py) | Une dalle, quatre murs, des obstacles, un point de départ, deux lumières, dans `/Game/Maps/TestArena`. |
-| [`unreal/Content/Python/list_pack.py`](../../unreal/Content/Python/list_pack.py) | Ne modifie rien. Inventaire d'un pack : maillages, dimensions en centimètres, matériaux. À lancer **avant** l'export, pour connaître les chemins à mettre dans le travail. |
 | [`unreal/Content/Python/export_sprites.py`](../../unreal/Content/Python/export_sprites.py) | Photographie chaque maillage demandé en vue 3/4 orthographique, sur fond plat, et écrit un PNG par figure. |
 
 ## Faire des sprites à partir d'un pack
 
 ```
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/list_pack.json
-```
-
-Relevez les chemins qui vous intéressent, reportez-les dans le champ `figures`
-de [`jobs/export_sprites.json`](jobs/export_sprites.json) — une entrée par
-sprite, avec son nom côté jeu (`crawler`, `tower_gun`…) et sa trame — puis :
-
-```
 python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
 node tools/import-textures.mjs <dossier annoncé en fin de travail> --name mon-pack
 ```
+
+Pas de chemins à relever à la main : chaque figure de
+[`jobs/export_sprites.json`](jobs/export_sprites.json) est décrite par des
+mots-clés (`match: ["building", "tower"]`) que le moteur résout contre les
+packs réellement importés, sous `/Game/ThirdParty` et `/Game/Art`. Le compte
+rendu annonce, figure par figure, le maillage retenu et son score :
+
+```
+  tower_gun   tower_gun@2.png   trouvé (4 pts) : …/Models/building_tower
+```
+
+Corrigez d'après ce qu'il dit — affinez `match`, ajoutez `avoid: ["mage"]`,
+ou forcez un chemin avec `asset`. À égalité, le nom le plus court gagne, et un
+maillage déjà pris par une autre figure est légèrement pénalisé : deux tours
+différentes ne se retrouvent pas avec le même modèle. L'inventaire complet des
+assets importés s'obtient avec le travail `production_asset_inventory_09`.
 
 Le moteur photographie sur **fond magenta** ; le détourage, le rognage,
 l'atlas et le manifeste se font hors du moteur, où c'est testable. Si votre

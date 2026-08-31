@@ -183,7 +183,7 @@ jusqu'au jeu, et chaque maillon se vérifie tout seul.
 
 ```
         pack Unreal
-             │   bridge.py run-job list_pack.json        ← qu'y a-t-il dedans ?
+             │   bridge.py run-job production_asset_inventory_09.json
              │   bridge.py run-job export_sprites.json   ← une photo par figure
              ▼
       captures PNG (fond magenta)
@@ -194,6 +194,11 @@ jusqu'au jeu, et chaque maillon se vérifie tout seul.
              ▼
            le jeu
 ```
+
+Les packs sont ceux du projet Unreal — KayKit et Poly Haven, **tous en CC0**
+(voir [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md)). Aucune restriction
+d'usage hors moteur : les sprites tirés de ces packs peuvent partir dans le jeu
+web sans arrière-pensée.
 
 Trois choix qui expliquent le reste :
 
@@ -207,6 +212,13 @@ Trois choix qui expliquent le reste :
 3. **Le manifeste est du JavaScript, pas du JSON.** Le jeu s'ouvre depuis un
    simple fichier local, où `fetch` est interdit par la politique d'origine.
    Un `<script>` passe.
+
+Une figure ne désigne pas un chemin mais **ce qu'on cherche** : `match:
+["building", "tower"]`. Les chemins exacts dépendent de l'arborescence du pack
+et de sa version ; le moteur, lui, les a sous la main. Le compte rendu dit
+figure par figure ce qui a été retenu et avec quel score, et à égalité c'est le
+nom le plus court — donc le plus précis — qui gagne. C'est ce départage qui
+empêche « building_mage_tower » de rafler la tour d'archers.
 
 Le cadrage des captures est commun à toutes les figures — une boîte de
 `frame_cm` centimètres — et l'atlas retient la taille de chaque capture avant
@@ -366,14 +378,14 @@ Python **dans un éditeur Unreal ouvert**, depuis le terminal.
 ```
 python3 tools/unreal_bridge/bridge.py ping
 python3 tools/unreal_bridge/bridge.py run-script unreal/Content/Python/healthcheck.py
-python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/list_pack.json
 python3 tools/unreal_bridge/bridge.py run-job tools/unreal_bridge/jobs/export_sprites.json
 ```
 
-C'est par là que passent les packs de textures : `list_pack` dit ce que
-contient le pack, `export_sprites` en photographie les maillages en vue 3/4,
-et [`tools/import-textures.mjs`](tools/import-textures.mjs) en fait la planche
-que le jeu charge — voir *Habiller le jeu avec un pack de textures*.
+C'est par là que passent les packs : `production_asset_inventory_09` dit ce qui
+est réellement importé, `export_sprites` en photographie les maillages en vue
+3/4, et [`tools/import-textures.mjs`](tools/import-textures.mjs) en fait la
+planche que le jeu web charge — voir *Habiller le jeu avec un pack de
+textures*.
 
 Sur macOS, le moteur est repéré tout seul dans `/Users/Shared/Epic Games/UE_*`
 (la version la plus récente d'abord), et `--verbose` dit en une ligne si le

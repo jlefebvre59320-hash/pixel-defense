@@ -305,6 +305,30 @@ def test_export_sprites(tmp: Path):
     check("le travail se termine sans échec", proc.returncode == 0,
           proc.stderr.strip() or proc.stdout[-400:])
 
+    # Quel maillage chaque figure a-t-elle attrapé ? C'est la question que le
+    # premier jet ne posait pas — et deux tours différentes se retrouvaient
+    # avec le même modèle sans que rien ne le signale.
+    picked = {}
+    for line in proc.stdout.splitlines():
+        if "trouvé (" not in line:
+            continue
+        parts = line.split()
+        picked.setdefault(parts[0], []).append(parts[-1])
+
+    check("chaque figure a trouvé un maillage",
+          len(picked) == 13, sorted(picked))
+    check("les personnages viennent des packs KayKit",
+          all("KayKit" in v[0] for v in picked.values()), picked.get("crawler"))
+    check("les niveaux d'une même tour ont des maillages distincts",
+          len(set(picked.get("tower_gun", []))) == 3
+          and len(set(picked.get("tower_tesla", []))) == 3,
+          {k: picked.get(k) for k in ("tower_gun", "tower_tesla")})
+    check("deux tours différentes ne partagent pas un maillage",
+          not (set(picked.get("tower_gun", [])) & set(picked.get("tower_tesla", []))),
+          {k: picked.get(k) for k in ("tower_gun", "tower_tesla")})
+    check("un maillage squelettique est accepté",
+          any("Characters" in v[0] for v in picked.values()), picked.get("crawler"))
+
     written = sorted(p.name for p in caps.glob("*.png")) if caps.exists() else []
     check("26 captures écrites", len(written) == 26, len(written))
     check("le nommage porte la figure et la trame",
