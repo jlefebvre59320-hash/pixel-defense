@@ -143,7 +143,9 @@ void APDProjectile::Init(APDEnemy* InTarget,EPDTowerKind InKind,float InDamage,
     Start=GetActorLocation();
     LastTarget=InTarget?InTarget->GetActorLocation()+FVector(0,0,80):Start;
     Glow->SetLightColor(KindColor(Kind));
-    Glow->SetIntensity(Kind==EPDTowerKind::Mage?2600.f:1500.f);
+    Glow->SetAttenuationRadius(Kind==EPDTowerKind::Mage?520.f:420.f);
+    Glow->SetIntensity(Kind==EPDTowerKind::Mage?5200.f:
+        (Kind==EPDTowerKind::Bombard?3800.f:2600.f));
     if(UMaterialInterface* Material=LoadMaterial(KindMaterial(Kind)))
         Visual->SetMaterial(0,Material);
 
@@ -155,15 +157,15 @@ void APDProjectile::Init(APDEnemy* InTarget,EPDTowerKind InKind,float InDamage,
             { Visual->SetStaticMesh(Arrow); SetActorScale3D(FVector(1.f)); }
             break;
         case EPDTowerKind::Frost:
-            Speed=1050.f; SetActorScale3D(FVector(.18f)); break;
+            Speed=1050.f; SetActorScale3D(FVector(.26f)); break;
         case EPDTowerKind::Bombard:
-            Speed=850.f; ArcHeight=520.f; SetActorScale3D(FVector(.28f));
+            Speed=850.f; ArcHeight=560.f; SetActorScale3D(FVector(.40f));
             if(UStaticMesh* Stone=FindProductionAsset<UStaticMesh>(
                 FName(TEXT("projectile_catapult"))))
-            { Visual->SetStaticMesh(Stone); SetActorScale3D(FVector(1.4f)); }
+            { Visual->SetStaticMesh(Stone); SetActorScale3D(FVector(1.8f)); }
             break;
         case EPDTowerKind::Mage:
-            Speed=2600.f; SetActorScale3D(FVector(.22f)); break;
+            Speed=2600.f; SetActorScale3D(FVector(.34f)); break;
     }
     TravelTime=FMath::Clamp(FVector::Distance(Start,LastTarget)/Speed,.12f,1.2f);
     SetLifeSpan(2.f);
@@ -223,9 +225,12 @@ void APDImpactFX::Init(EPDTowerKind InKind)
     if(UMaterialInterface* Material=LoadMaterial(KindMaterial(InKind)))
         Visual->SetMaterial(0,Material);
     Glow->SetLightColor(KindColor(InKind));
-    Glow->SetIntensity(InKind==EPDTowerKind::Bombard?5200.f:3000.f);
-    FinalScale=InKind==EPDTowerKind::Bombard?3.8f:
-        (InKind==EPDTowerKind::Mage?2.4f:1.8f);
+    Glow->SetAttenuationRadius(InKind==EPDTowerKind::Bombard?760.f:580.f);
+    Glow->SetIntensity(InKind==EPDTowerKind::Bombard?9000.f:
+        (InKind==EPDTowerKind::Mage?7600.f:5200.f));
+    FinalScale=InKind==EPDTowerKind::Bombard?5.4f:
+        (InKind==EPDTowerKind::Mage?3.5f:
+        (InKind==EPDTowerKind::Frost?2.7f:2.0f));
     SetActorScale3D(FVector(.08f));
     SetLifeSpan(Duration+.05f);
 }
@@ -237,7 +242,7 @@ void APDImpactFX::Tick(float DeltaSeconds)
     const float Alpha=FMath::Clamp(Age/Duration,0.f,1.f);
     const float Pulse=FMath::Sin(Alpha*PI);
     SetActorScale3D(FVector(FMath::Lerp(.08f,FinalScale,Alpha)));
-    Glow->SetIntensity(4200.f*Pulse);
+    Glow->SetIntensity(8200.f*Pulse);
 }
 
 APDEnvironment::APDEnvironment()
@@ -329,7 +334,7 @@ void APDEnvironment::BuildTerrain()
 
     Path->SetStaticMesh(Cube);
     PathJunctions->SetStaticMesh(Cylinder);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_CobbleV4")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_WarmV5")))
     {
         Path->SetMaterial(0,Road);
         PathJunctions->SetMaterial(0,Road);
@@ -342,10 +347,10 @@ void APDEnvironment::BuildTerrain()
         const float Length=FVector2D(Delta.X,Delta.Y).Size()+45.f;
         const float Yaw=FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X));
         Path->AddInstance(FTransform(FRotator(0,Yaw,0),Mid,
-            FVector(Length/100.f,2.45f,.075f)));
+            FVector(Length/100.f,2.18f,.075f)));
         if(Index<UE_ARRAY_COUNT(Route)-1)
             PathJunctions->AddInstance(FTransform(FRotator::ZeroRotator,Route[Index],
-                FVector(2.48f,2.48f,.075f)));
+                FVector(2.22f,2.22f,.075f)));
     }
 }
 
@@ -359,7 +364,8 @@ void APDEnvironment::BuildForest()
     UStaticMesh* Rock=FindProductionAsset<UStaticMesh>(FName(TEXT("rock_single_C")));
     UStaticMesh* Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("mountain_A")));
     if(!Cliff) Cliff=FindProductionAsset<UStaticMesh>(FName(TEXT("hills_A")));
-    if(!Cliff) Cliff=Rock;
+    const bool bUsingRockCliffs=!Cliff;
+    if(bUsingRockCliffs) Cliff=Rock;
     if(!TreeC) TreeC=TreeB?TreeB:TreeA;
 
     TreesA->SetStaticMesh(TreeA); TreesB->SetStaticMesh(TreeB);
@@ -373,7 +379,7 @@ void APDEnvironment::BuildForest()
     const float ShrubScale=UniformWidthScale(Shrub,135.f);
     const float GrassScale=UniformWidthScale(Grass,86.f);
     const float RockScale=UniformWidthScale(Rock,190.f);
-    const float CliffScale=UniformWidthScale(Cliff,650.f);
+    const float CliffScale=UniformWidthScale(Cliff,bUsingRockCliffs?235.f:520.f);
     FRandomStream Random(20260831);
 
     struct FGrove { FVector Center; float Radius; int32 Count; };
@@ -407,26 +413,28 @@ void APDEnvironment::BuildForest()
     }
 
     // Rock ridges form an irregular valley silhouette instead of a square platform.
-    for(int32 Index=0;Index<30;++Index)
+    const int32 RidgeCount=bUsingRockCliffs?18:26;
+    const int32 HorizontalCount=bUsingRockCliffs?10:14;
+    for(int32 Index=0;Index<RidgeCount;++Index)
     {
-        const bool bHorizontal=Index<16;
+        const bool bHorizontal=Index<HorizontalCount;
         FVector P;
         if(bHorizontal)
         {
             const float Side=Index%2?1.f:-1.f;
-            P=FVector(-3800.f+(Index/2)*520.f+Random.FRandRange(-130.f,130.f),
+            P=FVector(-3800.f+(Index/2)*760.f+Random.FRandRange(-130.f,130.f),
                       Side*2500.f+Random.FRandRange(-100.f,100.f),-15.f);
         }
         else
         {
             const float Side=Index%2?1.f:-1.f;
             P=FVector(Side*4250.f+Random.FRandRange(-100.f,100.f),
-                      -2100.f+((Index-16)/2)*610.f+Random.FRandRange(-120.f,120.f),
+                      -2100.f+((Index-HorizontalCount)/2)*820.f+Random.FRandRange(-120.f,120.f),
                       -15.f);
         }
         Cliffs->AddInstance(FTransform(
             FRotator(Random.FRandRange(-5.f,5.f),Random.FRandRange(0.f,360.f),0),
-            P,FVector(CliffScale*Random.FRandRange(.68f,1.22f))));
+            P,FVector(CliffScale*Random.FRandRange(.72f,1.08f))));
     }
 
     for(int32 Attempt=0;Attempt<155;++Attempt)

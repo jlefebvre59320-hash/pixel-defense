@@ -80,28 +80,7 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
 }
 }
 
-static UTexture2D* FindKenneyUITexture(const TCHAR* Token)
-{
-    FAssetRegistryModule& Module=
-        FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-    TArray<FString> PathsToScan;
-    PathsToScan.Add(TEXT("/Game/ThirdParty/Kenney"));
-    Module.Get().ScanPathsSynchronous(PathsToScan,false);
-    TArray<FAssetData> Assets;
-    Module.Get().GetAssetsByPath(
-        FName(TEXT("/Game/ThirdParty/Kenney")),Assets,true,false);
-    const FString Wanted(Token);
-    for(const FAssetData& Asset:Assets)
-    {
-        if(Asset.AssetClassPath!=UTexture2D::StaticClass()->GetClassPathName())
-            continue;
-        if(Asset.AssetName.ToString().ToLower().Contains(Wanted))
-            return Cast<UTexture2D>(Asset.GetAsset());
-    }
-    return nullptr;
-}
-
-APDVillager::APDVillager()
+static APDVillager::APDVillager()
 {
     PrimaryActorTick.bCanEverTick=true;
     CharacterVisual=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterVisual"));
@@ -437,7 +416,7 @@ void APDGameMode::StartGame()
     if(bGameStarted) return;
     bGameStarted=true;
     bPauseMenuOpen=false;
-    BreakCooldown=.35f;
+    BreakCooldown=25.f;
 }
 
 void APDGameMode::TogglePauseMenu()
@@ -484,10 +463,10 @@ void APDGameMode::CreateVillagers()
 void APDGameMode::CreateCamera()
 {
     ACameraActor* Camera=GetWorld()->SpawnActor<ACameraActor>(
-        FVector(0,-7000,4100),FRotator(-31,90,0));
+        FVector(0,-6250,3550),FRotator(-30,90,0));
     if(Camera && Camera->GetCameraComponent())
     {
-        Camera->GetCameraComponent()->SetFieldOfView(56.f);
+        Camera->GetCameraComponent()->SetFieldOfView(50.f);
         Camera->GetCameraComponent()->PostProcessBlendWeight=.10f;
     }
     if(APlayerController* PC=UGameplayStatics::GetPlayerController(this,0))
@@ -686,8 +665,8 @@ void APDPlayerController::ZoomIn()
     if(AActor* Camera=GetViewTarget())
     {
         FVector P=Camera->GetActorLocation();
-        P.Z=FMath::Clamp(P.Z-260.f,3300.f,5000.f);
-        P.Y=FMath::Clamp(P.Y+150.f,-7600.f,-5900.f);
+        P.Z=FMath::Clamp(P.Z-240.f,2850.f,4500.f);
+        P.Y=FMath::Clamp(P.Y+140.f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -697,8 +676,8 @@ void APDPlayerController::ZoomOut()
     if(AActor* Camera=GetViewTarget())
     {
         FVector P=Camera->GetActorLocation();
-        P.Z=FMath::Clamp(P.Z+260.f,3300.f,5000.f);
-        P.Y=FMath::Clamp(P.Y-150.f,-7600.f,-5900.f);
+        P.Z=FMath::Clamp(P.Z+240.f,2850.f,4500.f);
+        P.Y=FMath::Clamp(P.Y-140.f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -711,7 +690,7 @@ void APDPlayerController::PanCamera(const FVector2D& ScreenDelta)
     {
         FVector P=Camera->GetActorLocation();
         P.X=FMath::Clamp(P.X-ScreenDelta.X*2.15f,-1450.f,1450.f);
-        P.Y=FMath::Clamp(P.Y+ScreenDelta.Y*1.75f,-7600.f,-5900.f);
+        P.Y=FMath::Clamp(P.Y+ScreenDelta.Y*1.75f,-7100.f,-5350.f);
         Camera->SetActorLocation(P);
     }
 }
@@ -794,30 +773,47 @@ void APDPlayerController::TryBuildAtScreen(float X,float Y)
 
 void APDHUD::DrawPanel(float X,float Y,float W,float H,const FLinearColor& Color)
 {
+    if(W>42.f&&H>18.f)
+    {
+        FCanvasTileItem Shadow(FVector2D(X+4.f,Y+5.f),FVector2D(W,H),
+            FLinearColor(.005f,.008f,.012f,.34f));
+        Shadow.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Shadow);
+    }
     FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
     Base.BlendMode=SE_BLEND_Translucent;
     Canvas->DrawItem(Base);
-    if(PanelTexture&&W>105.f&&H>48.f)
+    if(W>70.f&&H>30.f)
     {
-        FCanvasTileItem Art(FVector2D(X,Y),PanelTexture->GetResource(),
-            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.38f));
-        Art.BlendMode=SE_BLEND_Translucent;
-        Canvas->DrawItem(Art);
+        const FLinearColor Highlight(1.f,.82f,.42f,.18f);
+        const FLinearColor Shade(.01f,.02f,.03f,.34f);
+        FCanvasTileItem Top(FVector2D(X+2.f,Y+2.f),FVector2D(W-4.f,2.f),Highlight);
+        FCanvasTileItem Left(FVector2D(X+2.f,Y+4.f),FVector2D(2.f,H-8.f),Highlight);
+        FCanvasTileItem Bottom(FVector2D(X+2.f,Y+H-4.f),FVector2D(W-4.f,2.f),Shade);
+        FCanvasTileItem Right(FVector2D(X+W-4.f,Y+4.f),FVector2D(2.f,H-8.f),Shade);
+        Top.BlendMode=Left.BlendMode=Bottom.BlendMode=Right.BlendMode=SE_BLEND_Translucent;
+        Canvas->DrawItem(Top); Canvas->DrawItem(Left);
+        Canvas->DrawItem(Bottom); Canvas->DrawItem(Right);
     }
 }
 
 void APDHUD::DrawButton(float X,float Y,float W,float H,const FLinearColor& Color)
 {
-    FCanvasTileItem Base(FVector2D(X,Y),FVector2D(W,H),Color);
-    Base.BlendMode=SE_BLEND_Translucent;
-    Canvas->DrawItem(Base);
-    if(ButtonTexture)
-    {
-        FCanvasTileItem Art(FVector2D(X,Y),ButtonTexture->GetResource(),
-            FVector2D(W,H),FLinearColor(1.f,1.f,1.f,.82f));
-        Art.BlendMode=SE_BLEND_Translucent;
-        Canvas->DrawItem(Art);
-    }
+    FCanvasTileItem Shadow(FVector2D(X+4.f,Y+5.f),FVector2D(W,H),
+        FLinearColor(.005f,.008f,.012f,.42f));
+    Shadow.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Shadow);
+    FCanvasTileItem Rim(FVector2D(X,Y),FVector2D(W,H),
+        FLinearColor(.72f,.48f,.16f,.94f));
+    Rim.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Rim);
+    FCanvasTileItem Face(FVector2D(X+3.f,Y+3.f),FVector2D(W-6.f,H-7.f),Color);
+    Face.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Face);
+    FCanvasTileItem Shine(FVector2D(X+6.f,Y+6.f),FVector2D(W-12.f,2.f),
+        FLinearColor(1.f,.92f,.68f,.28f));
+    Shine.BlendMode=SE_BLEND_Translucent;
+    Canvas->DrawItem(Shine);
 }
 
 void APDHUD::DrawLabel(const FString& Text,float X,float Y,
@@ -840,9 +836,6 @@ void APDHUD::DrawHUD()
     const FLinearColor Gold(1.f,.72f,.20f,1.f);
     const FLinearColor Cream(1.f,.95f,.80f,1.f);
     const FLinearColor Green(.25f,.90f,.48f,1.f);
-    if(!PanelTexture) PanelTexture=FindKenneyUITexture(TEXT("panel"));
-    if(!ButtonTexture) ButtonTexture=FindKenneyUITexture(TEXT("button"));
-
     if(!GM->IsGameStarted())
     {
         DrawPanel(0,0,W,H,FLinearColor(.015f,.025f,.045f,.66f));
@@ -860,15 +853,15 @@ void APDHUD::DrawHUD()
         return;
     }
 
-    DrawPanel(22,20,500,76,Ink);
-    DrawPanel(22,20,500,4,Gold);
+    DrawPanel(22,20,560,86,Ink);
+    DrawPanel(22,20,560,5,Gold);
     DrawLabel(FString::Printf(TEXT("COEURS  %d"),GM->Lives),42,40,
-              GM->Lives<=5?FLinearColor(.98f,.24f,.22f):Cream,1.05f);
-    DrawLabel(FString::Printf(TEXT("OR  %d"),GM->Gold),174,40,Gold,1.05f);
+              GM->Lives<=5?FLinearColor(.98f,.24f,.22f):Cream,1.16f);
+    DrawLabel(FString::Printf(TEXT("OR  %d"),GM->Gold),186,40,Gold,1.16f);
     DrawLabel(FString::Printf(TEXT("VAGUE  %d/%d"),GM->Wave,GM->TotalWaves),
-              286,40,Cream,1.05f);
+              310,40,Cream,1.16f);
     DrawLabel(FString::Printf(TEXT("TOURS  %d"),GM->GetBuiltTowerCount()),
-              420,40,FLinearColor(.55f,.88f,1.f),.9f);
+              470,42,FLinearColor(.55f,.88f,1.f),.96f);
 
     const float ButtonY=20.f;
     DrawButton(W-300,ButtonY,102,76,GM->IsWaveActive()?InkSoft:
@@ -879,6 +872,17 @@ void APDHUD::DrawHUD()
     DrawLabel(FString::Printf(TEXT("x%d"),PC->SpeedIndex+1),W-161,43,Gold,1.25f);
     DrawButton(W-92,ButtonY,70,76,Ink);
     DrawLabel(TEXT("II"),W-70,43,Cream,1.2f);
+
+    if(GM->IsPreparing())
+    {
+        const int32 Seconds=FMath::Max(0,FMath::CeilToInt(GM->GetWaveCountdown()));
+        DrawPanel(W*.34f,112.f,W*.32f,78.f,Ink);
+        DrawPanel(W*.34f,112.f,W*.32f,4.f,Gold);
+        DrawLabel(FString::Printf(TEXT("PREPARATION : %d s"),Seconds),
+                  W*.405f,132.f,Cream,1.05f);
+        DrawLabel(TEXT("Placez vos tours - VAGUE pour lancer"),
+                  W*.385f,161.f,FLinearColor(.68f,.86f,.72f,1.f),.72f);
+    }
 
     const FString Names[]={TEXT("ARCHERS"),TEXT("GIVRE"),TEXT("BOMBARDE"),TEXT("ARCANES")};
     const FString Costs[]={TEXT("40 OR"),TEXT("60 OR"),TEXT("80 OR"),TEXT("130 OR")};
