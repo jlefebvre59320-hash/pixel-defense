@@ -53,4 +53,8 @@ echo "Textures et ciel Poly Haven CC0 (1K mobile)..."
 python3 "$SCRIPT_DIR/fetch_polyhaven_cc0.py"
 
 echo
+echo "Interface fantasy Kenney CC0..."
+bash "$SCRIPT_DIR/fetch_kenney_ui_cc0.sh"
+
+echo
 echo "Packs prêts dans: $DEST_ROOT"
