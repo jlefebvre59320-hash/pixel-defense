@@ -79,6 +79,65 @@ UAnimSequence* FindCharacterAnimation(USkeletalMesh* Mesh,const TCHAR* Token,
 }
 }
 
+APDVillager::APDVillager()
+{
+    PrimaryActorTick.bCanEverTick=true;
+    CharacterVisual=CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterVisual"));
+    RootComponent=CharacterVisual;
+    CharacterVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    CharacterVisual->SetRelativeRotation(FRotator(0,-90,0));
+    CharacterVisual->SetRelativeScale3D(FVector(.58f));
+}
+
+void APDVillager::PlayLoop(UAnimSequence* Animation)
+{
+    if(!Animation) return;
+    CharacterVisual->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+    CharacterVisual->SetAnimation(Animation);
+    CharacterVisual->Play(true);
+}
+
+void APDVillager::InitVillager(const FVector& InA,const FVector& InB,
+                               FName MeshName,float InPhase)
+{
+    PointA=InA;
+    PointB=InB;
+    const float Alpha=FMath::Frac(FMath::Abs(InPhase));
+    SetActorLocation(FMath::Lerp(PointA,PointB,Alpha));
+    Speed=82.f+Alpha*38.f;
+    if(USkeletalMesh* Mesh=FindKayKitAsset<USkeletalMesh>(MeshName))
+    {
+        CharacterVisual->SetSkeletalMeshAsset(Mesh);
+        WalkAnimation=FindCharacterAnimation(Mesh,TEXT("walk"),TEXT("run"));
+        IdleAnimation=FindCharacterAnimation(Mesh,TEXT("idle"));
+        PlayLoop(WalkAnimation);
+    }
+}
+
+void APDVillager::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if(PauseRemaining>0.f)
+    {
+        PauseRemaining-=DeltaSeconds;
+        if(PauseRemaining<=0.f) PlayLoop(WalkAnimation);
+        return;
+    }
+    const FVector Target=bGoingToB?PointB:PointA;
+    FVector Direction=Target-GetActorLocation();
+    Direction.Z=0.f;
+    if(Direction.SizeSquared()<FMath::Square(24.f))
+    {
+        bGoingToB=!bGoingToB;
+        PauseRemaining=1.3f+FMath::FRandRange(0.f,2.4f);
+        PlayLoop(IdleAnimation);
+        return;
+    }
+    SetActorRotation(FRotator(0,Direction.Rotation().Yaw,0));
+    SetActorLocation(FMath::VInterpConstantTo(
+        GetActorLocation(),Target,DeltaSeconds,Speed));
+}
+
 APDEnemy::APDEnemy()
 {
     PrimaryActorTick.bCanEverTick=true;
@@ -341,11 +400,14 @@ void APDGameMode::BeginPlay()
 {
     Super::BeginPlay();
     EnemyPath={
-        FVector(-3200,-1300,90),FVector(-2300,-450,90),FVector(-1200,-850,90),
-        FVector(-250,-100,90),FVector(900,-650,90),FVector(1900,100,90),FVector(3100,850,90)
+        FVector(-3300,-1250,90),FVector(-2920,-980,90),FVector(-2460,-650,90),
+        FVector(-1950,-500,90),FVector(-1450,-660,90),FVector(-930,-720,90),
+        FVector(-470,-430,90),FVector(20,-90,90),FVector(560,-270,90),
+        FVector(1080,-520,90),FVector(1570,-280,90),FVector(2040,80,90),
+        FVector(2550,420,90),FVector(3150,800,90)
     };
     GetWorld()->SpawnActor<APDEnvironment>();
-    CreateBuildPads(); CreateCamera();
+    CreateBuildPads(); CreateVillagers(); CreateCamera();
 }
 
 void APDGameMode::StartGame()
@@ -365,11 +427,36 @@ void APDGameMode::TogglePauseMenu()
 void APDGameMode::CreateBuildPads()
 {
     const FVector Pads[]={
-        {-2450,-1100,70},{-1900,-850,70},{-1450,-200,70},{-850,-1200,70},
-        {-300,450,70},{350,-700,70},{850,50,70},{1350,-1050,70},
-        {1650,500,70},{2300,-300,70},{2650,650,70}
+        {-2780,-520,70},{-2260,-1080,70},{-1760,40,70},{-1250,-1160,70},
+        {-650,120,70},{-180,-780,70},{420,260,70},{920,-980,70},
+        {1430,210,70},{1900,-610,70},{2390,-40,70},{2780,760,70}
     };
     for(const FVector& P:Pads) GetWorld()->SpawnActor<APDBuildPad>(P,FRotator::ZeroRotator);
+}
+
+void APDGameMode::CreateVillagers()
+{
+    struct FRoute
+    {
+        FVector A;
+        FVector B;
+        const TCHAR* Mesh;
+        float Phase;
+    };
+    const FRoute Routes[]={
+        {{-2850,1040,45},{-2250,1280,45},TEXT("Rogue"),.18f},
+        {{-2180,1450,45},{-1500,1120,45},TEXT("Mage"),.62f},
+        {{1050,1120,45},{1650,1450,45},TEXT("Knight"),.34f},
+        {{1740,1560,45},{2420,1260,45},TEXT("Barbarian"),.76f},
+        {{420,700,45},{820,1080,45},TEXT("RogueHooded"),.48f},
+        {{2920,1180,45},{3370,1450,45},TEXT("Knight"),.08f}
+    };
+    for(const FRoute& Route:Routes)
+    {
+        APDVillager* Villager=GetWorld()->SpawnActor<APDVillager>();
+        if(Villager)
+            Villager->InitVillager(Route.A,Route.B,FName(Route.Mesh),Route.Phase);
+    }
 }
 
 void APDGameMode::CreateCamera()
