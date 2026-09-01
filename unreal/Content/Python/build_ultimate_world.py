@@ -188,6 +188,9 @@ def build_materials():
     make_pbr("M_Path_CobbleV4", "grass_path_3", (.78, .66, .50, 1), 5.4)
     make_pbr("M_Path_WarmV5", "grass_path_2", (1.35, 1.12, .82, 1), 4.2)
     make_pbr("M_Path_ClayV6", "__solid_clay__", (.34, .16, .065, 1), 5.0)
+    # Versioned name guarantees creation even when an older setup left a stale
+    # gray material package in Content.
+    make_pbr("M_Path_ClayV7", "__solid_clay_v7__", (.30, .105, .028, 1), 5.0)
     make_water()
     make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
     make_translucent_unlit("M_Cloud_SoftV2", (1.0, .985, .94, 1), .76)
@@ -320,5 +323,5 @@ def build_level():
 
 build_materials()
 summary = build_level()
-summary["materials"] = 19
+summary["materials"] = 20
 print("ULTIMATE_WORLD_JSON " + json.dumps(summary, ensure_ascii=False))
