@@ -144,9 +144,10 @@ if os.path.isdir(quaternius_root):
             for filename in sorted(filenames):
                 source = os.path.join(root, filename)
                 extension = os.path.splitext(filename)[1].lower()
-                stem = os.path.splitext(filename)[0].lower()
-                if extension in MODEL_EXTENSIONS and any(
-                        keyword in stem for keyword in QUATERNIUS_KEYWORDS):
+                if extension in MODEL_EXTENSIONS:
+                    # Import the complete Standard FBX library. Quaternius naming
+                    # varies between pack releases (House, Building, SM_*, etc.);
+                    # filename keyword filtering silently omitted valid scenery.
                     sources.append(("model", pack, pack_root, source))
                 elif extension in TEXTURE_EXTENSIONS and wanted_texture(source):
                     key = filename.lower()
@@ -238,12 +239,25 @@ for path in imported_paths:
             counts[pack] += 1
             break
 
+registry = unreal.AssetRegistryHelpers.get_asset_registry()
+registry.scan_paths_synchronous(
+    ["/Game/ThirdParty/Quaternius"], force_rescan=True)
+available_assets_by_pack = {}
+for pack in QUATERNIUS_PACKS:
+    package_path = f"/Game/ThirdParty/Quaternius/{pack}"
+    available_assets_by_pack[pack] = len(
+        registry.get_assets_by_path(package_path, recursive=True))
+
 report = {
     "source_root": external_root,
     "curated_source_files": len(sources),
     "imported_objects": len(imported_paths),
     "failed_or_already_present": len(failed_files),
     "by_pack": dict(counts),
+    "available_assets_by_pack": available_assets_by_pack,
+    "quaternius_ready": all(
+        available_assets_by_pack.get(pack, 0) > 0
+        for pack in QUATERNIUS_PACKS),
     "destination": "/Game/ThirdParty",
     "failed_sample": failed_files[:30],
 }
