@@ -66,7 +66,6 @@ AssetType* FindPreferredProductionAsset(const TCHAR* Token,int32 Variant=0)
     Module.Get().GetAssetsByPath(
         FName(TEXT("/Game/ThirdParty")),Assets,true,false);
     TArray<FAssetData> Preferred;
-    TArray<FAssetData> Fallback;
     const FTopLevelAssetPath WantedClass=AssetType::StaticClass()->GetClassPathName();
     for(const FAssetData& Asset:Assets)
     {
@@ -74,10 +73,8 @@ AssetType* FindPreferredProductionAsset(const TCHAR* Token,int32 Variant=0)
         if(!Asset.AssetName.ToString().ToLower().Contains(Wanted)) continue;
         if(Asset.PackageName.ToString().Contains(TEXT("/Quaternius/")))
             Preferred.Add(Asset);
-        else
-            Fallback.Add(Asset);
     }
-    TArray<FAssetData>& Matches=Preferred.Num()>0?Preferred:Fallback;
+    TArray<FAssetData>& Matches=Preferred;
     Matches.Sort([](const FAssetData& A,const FAssetData& B)
     {
         return A.AssetName.ToString()<B.AssetName.ToString();
@@ -107,6 +104,75 @@ UMaterialInterface* LoadMaterial(const TCHAR* Name)
     const FString Path = FString::Printf(
         TEXT("/Game/Art/Production/Materials/%s.%s"), Name, Name);
     return LoadObject<UMaterialInterface>(nullptr, *Path);
+}
+
+bool IsQuaterniusMesh(UStaticMesh* Mesh)
+{
+    return Mesh && Mesh->GetPathName().Contains(TEXT("/Quaternius/"));
+}
+
+void ApplyAllSlots(UHierarchicalInstancedStaticMeshComponent* Component,
+                   UStaticMesh* Mesh,const TCHAR* MaterialName)
+{
+    if(!Component || !IsQuaterniusMesh(Mesh)) return;
+    UMaterialInterface* Material=LoadMaterial(MaterialName);
+    if(!Material) return;
+    const int32 SlotCount=FMath::Max(1,Mesh->GetStaticMaterials().Num());
+    for(int32 Slot=0;Slot<SlotCount;++Slot)
+        Component->SetMaterial(Slot,Material);
+}
+
+void ApplyNaturePalette(UHierarchicalInstancedStaticMeshComponent* Component,
+                        UStaticMesh* Mesh,const TCHAR* FoliageName)
+{
+    if(!Component || !IsQuaterniusMesh(Mesh)) return;
+    UMaterialInterface* Foliage=LoadMaterial(FoliageName);
+    UMaterialInterface* Bark=LoadMaterial(TEXT("M_PD_BarkWarmV1"));
+    if(!Foliage || !Bark) return;
+    const TArray<FStaticMaterial>& Slots=Mesh->GetStaticMaterials();
+    const int32 SlotCount=FMath::Max(1,Slots.Num());
+    for(int32 Slot=0;Slot<SlotCount;++Slot)
+    {
+        FString Name=Slots.IsValidIndex(Slot)?
+            Slots[Slot].MaterialSlotName.ToString().ToLower():FString();
+        const bool bWood=Name.Contains(TEXT("bark"))||
+            Name.Contains(TEXT("trunk"))||Name.Contains(TEXT("wood"))||
+            Name.Contains(TEXT("branch"));
+        Component->SetMaterial(Slot,bWood?Bark:Foliage);
+    }
+}
+
+void ApplyBuildingPalette(UHierarchicalInstancedStaticMeshComponent* Component,
+                          UStaticMesh* Mesh,const TCHAR* RoofName)
+{
+    if(!Component || !IsQuaterniusMesh(Mesh)) return;
+    UMaterialInterface* Wall=LoadMaterial(TEXT("M_PD_PlasterWarmV1"));
+    UMaterialInterface* Roof=LoadMaterial(RoofName);
+    UMaterialInterface* Wood=LoadMaterial(TEXT("M_PD_WoodDarkV1"));
+    UMaterialInterface* Stone=LoadMaterial(TEXT("M_PD_StoneWarmV1"));
+    if(!Wall || !Roof || !Wood || !Stone) return;
+    const TArray<FStaticMaterial>& Slots=Mesh->GetStaticMaterials();
+    const int32 SlotCount=FMath::Max(1,Slots.Num());
+    for(int32 Slot=0;Slot<SlotCount;++Slot)
+    {
+        FString Name=Slots.IsValidIndex(Slot)?
+            Slots[Slot].MaterialSlotName.ToString().ToLower():FString();
+        UMaterialInterface* Chosen=Wall;
+        if(Name.Contains(TEXT("roof"))||Name.Contains(TEXT("tile")))
+            Chosen=Roof;
+        else if(Name.Contains(TEXT("wood"))||Name.Contains(TEXT("door"))||
+                Name.Contains(TEXT("beam"))||Name.Contains(TEXT("frame")))
+            Chosen=Wood;
+        else if(Name.Contains(TEXT("stone"))||Name.Contains(TEXT("brick")))
+            Chosen=Stone;
+        else if(Name.IsEmpty()||Name.Contains(TEXT("material")))
+        {
+            const int32 PaletteSlot=Slot%4;
+            Chosen=PaletteSlot==1?Roof:(PaletteSlot==2?Wood:
+                (PaletteSlot==3?Stone:Wall));
+        }
+        Component->SetMaterial(Slot,Chosen);
+    }
 }
 
 FLinearColor KindColor(EPDTowerKind Kind)
@@ -389,7 +455,7 @@ void APDEnvironment::BuildTerrain()
 
     Path->SetStaticMesh(Cube);
     PathJunctions->SetStaticMesh(Cylinder);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ClayV7")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ClayV8")))
     {
         Path->SetMaterial(0,Road);
         PathJunctions->SetMaterial(0,Road);
@@ -436,6 +502,13 @@ void APDEnvironment::BuildForest()
     TreesC->SetStaticMesh(TreeC); Shrubs->SetStaticMesh(Shrub);
     Meadow->SetStaticMesh(Grass); Rocks->SetStaticMesh(Rock);
     Cliffs->SetStaticMesh(Cliff);
+    ApplyNaturePalette(TreesA,TreeA,TEXT("M_PD_LeafDeepV1"));
+    ApplyNaturePalette(TreesB,TreeB,TEXT("M_PD_LeafFreshV1"));
+    ApplyNaturePalette(TreesC,TreeC,TEXT("M_PD_LeafGoldV1"));
+    ApplyAllSlots(Shrubs,Shrub,TEXT("M_PD_LeafFreshV1"));
+    ApplyAllSlots(Meadow,Grass,TEXT("M_PD_GrassV1"));
+    ApplyAllSlots(Rocks,Rock,TEXT("M_PD_StoneWarmV1"));
+    ApplyAllSlots(Cliffs,Cliff,TEXT("M_PD_CliffV1"));
 
     const float TreeAScale=UniformHeightScale(TreeA,520.f);
     const float TreeBScale=UniformHeightScale(TreeB,430.f);
@@ -540,12 +613,15 @@ void APDEnvironment::BuildVillage()
         FName(TEXT("building_home_B_blue")));
     if(!HouseC) HouseC=FindProductionAsset<UStaticMesh>(
         FName(TEXT("building_home_A_red")));
-    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),0))
-        HouseA=Premium;
-    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),1))
-        HouseB=Premium;
-    if(UStaticMesh* Premium=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),2))
-        HouseC=Premium;
+    UStaticMesh* PremiumA=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),0);
+    UStaticMesh* PremiumB=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),1);
+    UStaticMesh* PremiumC=FindPreferredProductionAsset<UStaticMesh>(TEXT("house"),2);
+    if(!PremiumA) PremiumA=FindPreferredProductionAsset<UStaticMesh>(TEXT("building"),0);
+    if(!PremiumB) PremiumB=FindPreferredProductionAsset<UStaticMesh>(TEXT("building"),1);
+    if(!PremiumC) PremiumC=FindPreferredProductionAsset<UStaticMesh>(TEXT("building"),2);
+    if(PremiumA) HouseA=PremiumA;
+    if(PremiumB) HouseB=PremiumB;
+    if(PremiumC) HouseC=PremiumC;
     if(!HouseB) HouseB=HouseA;
     if(!HouseC) HouseC=HouseA;
 
@@ -564,6 +640,10 @@ void APDEnvironment::BuildVillage()
     Gateways->SetStaticMesh(Gate);
     Props->SetStaticMesh(Crate); Torches->SetStaticMesh(Torch);
     Castle->SetStaticMesh(CastleMesh);
+    ApplyBuildingPalette(Houses,HouseA,TEXT("M_PD_RoofRedV1"));
+    ApplyBuildingPalette(HousesB,HouseB,TEXT("M_PD_RoofBlueV1"));
+    ApplyBuildingPalette(HousesC,HouseC,TEXT("M_PD_RoofOchreV1"));
+    ApplyAllSlots(Props,Crate,TEXT("M_PD_WoodDarkV1"));
 
     const float HouseAScale=UniformWidthScale(HouseA,535.f);
     const float HouseBScale=UniformWidthScale(HouseB,500.f);
