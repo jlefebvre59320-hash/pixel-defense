@@ -82,9 +82,23 @@ AssetType* FindPreferredProductionAsset(const TCHAR* Token,int32 Variant=0)
     {
         return A.AssetName.ToString()<B.AssetName.ToString();
     });
-    if(Matches.Num()==0) return nullptr;
-    AssetType* Loaded=Cast<AssetType>(Matches[Variant%Matches.Num()].GetAsset());
-    if(Loaded) Cache.Add(CacheKey,Loaded);
+    if(Matches.Num()==0)
+    {
+        UE_LOG(LogTemp,Warning,
+            TEXT("PIXEL_DEFENSE_VISUAL_ASSET missing token=%s variant=%d"),
+            Token,Variant);
+        return nullptr;
+    }
+    const FAssetData& Selected=Matches[Variant%Matches.Num()];
+    AssetType* Loaded=Cast<AssetType>(Selected.GetAsset());
+    if(Loaded)
+    {
+        Cache.Add(CacheKey,Loaded);
+        UE_LOG(LogTemp,Display,
+            TEXT("PIXEL_DEFENSE_VISUAL_ASSET token=%s variant=%d asset=%s package=%s"),
+            Token,Variant,*Selected.AssetName.ToString(),
+            *Selected.PackageName.ToString());
+    }
     return Loaded;
 }
 
@@ -375,7 +389,7 @@ void APDEnvironment::BuildTerrain()
 
     Path->SetStaticMesh(Cube);
     PathJunctions->SetStaticMesh(Cylinder);
-    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ClayV6")))
+    if(UMaterialInterface* Road=LoadMaterial(TEXT("M_Path_ClayV7")))
     {
         Path->SetMaterial(0,Road);
         PathJunctions->SetMaterial(0,Road);
