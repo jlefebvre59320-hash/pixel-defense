@@ -191,6 +191,21 @@ def build_materials():
     # Versioned name guarantees creation even when an older setup left a stale
     # gray material package in Content.
     make_pbr("M_Path_ClayV7", "__solid_clay_v7__", (.30, .105, .028, 1), 5.0)
+    make_pbr("M_Path_ClayV8", "__solid_clay_v8__", (.42, .16, .045, 1), 5.0)
+    # Guaranteed fallback palette for FBX packs whose source materials are not
+    # translated by Unreal on macOS.
+    make_pbr("M_PD_LeafDeepV1", "__pd_leaf_deep__", (.025, .24, .075, 1), 1.0)
+    make_pbr("M_PD_LeafFreshV1", "__pd_leaf_fresh__", (.055, .40, .11, 1), 1.0)
+    make_pbr("M_PD_LeafGoldV1", "__pd_leaf_gold__", (.30, .48, .075, 1), 1.0)
+    make_pbr("M_PD_BarkWarmV1", "__pd_bark__", (.20, .065, .025, 1), 1.0)
+    make_pbr("M_PD_GrassV1", "__pd_grass__", (.10, .46, .12, 1), 1.0)
+    make_pbr("M_PD_StoneWarmV1", "__pd_stone__", (.31, .34, .36, 1), 1.0)
+    make_pbr("M_PD_CliffV1", "__pd_cliff__", (.22, .25, .27, 1), 1.0)
+    make_pbr("M_PD_PlasterWarmV1", "__pd_plaster__", (.72, .50, .27, 1), 1.0)
+    make_pbr("M_PD_WoodDarkV1", "__pd_wood__", (.16, .045, .018, 1), 1.0)
+    make_pbr("M_PD_RoofRedV1", "__pd_roof_red__", (.48, .035, .018, 1), 1.0)
+    make_pbr("M_PD_RoofBlueV1", "__pd_roof_blue__", (.025, .20, .42, 1), 1.0)
+    make_pbr("M_PD_RoofOchreV1", "__pd_roof_ochre__", (.56, .25, .025, 1), 1.0)
     make_water()
     make_translucent_unlit("M_Cloud", (1.0, .97, .91, 1), .42)
     make_translucent_unlit("M_Cloud_SoftV2", (1.0, .985, .94, 1), .76)
@@ -323,5 +338,5 @@ def build_level():
 
 build_materials()
 summary = build_level()
-summary["materials"] = 20
+summary["materials"] = 33
 print("ULTIMATE_WORLD_JSON " + json.dumps(summary, ensure_ascii=False))
