@@ -15,6 +15,12 @@
 
 namespace
 {
+// Hauteurs de reference, en unites Unreal. Le sol de la vallee est a zero ; on
+// decolle juste assez pour ne pas se battre avec lui sur le tampon de
+// profondeur.
+constexpr float CloudShadowGroundZ=8.f;
+constexpr float WildlifeGroundZ=0.f;
+
 template <typename AssetType>
 AssetType* FindProductionAsset(const FName RequestedName)
 {
@@ -402,10 +408,18 @@ APDEnvironment::APDEnvironment()
     Props=MakeHISM(TEXT("Props")); Torches=MakeHISM(TEXT("Torches"));
     Fireflies=MakeHISM(TEXT("Fireflies")); Dust=MakeHISM(TEXT("Dust"));
     Birds=MakeHISM(TEXT("Birds")); Clouds=MakeHISM(TEXT("Clouds"));
+    CloudShadows=MakeHISM(TEXT("CloudShadows")); Deer=MakeHISM(TEXT("Deer"));
     Fireflies->SetMobility(EComponentMobility::Movable);
     Dust->SetMobility(EComponentMobility::Movable);
     Birds->SetMobility(EComponentMobility::Movable);
     Clouds->SetMobility(EComponentMobility::Movable);
+    CloudShadows->SetMobility(EComponentMobility::Movable);
+    Deer->SetMobility(EComponentMobility::Movable);
+    // Une ombre ne projette pas d'ombre, et un chevreuil n'en a pas besoin
+    // d'une portee : le projet rend sur le chemin mobile, ou chaque caster
+    // coute cher.
+    CloudShadows->SetCastShadow(false);
+    Deer->SetCastShadow(false);
 }
 
 void APDEnvironment::BeginPlay()
@@ -767,6 +781,21 @@ void APDEnvironment::BuildAmbientFX()
     }
     if(CloudMesh)
     {
+        // Les ombres des nuages ne viennent pas du moteur : le projet rend sur
+        // le chemin mobile, ou les ombres de nuages volumetriques n'existent
+        // pas. On les pose donc comme dans la version web -- un quad sombre au
+        // sol par nuage, projete depuis le soleil -- ce qui marche sur
+        // n'importe quel pipeline.
+        UStaticMesh* Plane=LoadObject<UStaticMesh>(
+            nullptr,TEXT("/Engine/BasicShapes/Plane.Plane"));
+        UMaterialInterface* ShadowMaterial=LoadMaterial(TEXT("M_CloudShadow"));
+        const bool bShadows=Plane!=nullptr&&ShadowMaterial!=nullptr;
+        if(bShadows)
+        {
+            CloudShadows->SetStaticMesh(Plane);
+            CloudShadows->SetMaterial(0,ShadowMaterial);
+        }
+
         for(int32 Cluster=0;Cluster<5;++Cluster)
         {
             const FVector Center(-4100.f+Cluster*2050.f,
@@ -778,13 +807,51 @@ void APDEnvironment::BuildAmbientFX()
                     (Blob-1)*170.f,Blob==1?0.f:55.f,Blob==1?75.f:0.f);
                 CloudOrigins.Add(Origin); CloudSpeeds.Add(Drift);
                 const float Scale=Random.FRandRange(.72f,1.04f);
+                const FVector CloudScale(
+                    (Blob==1?3.2f:2.45f)*Scale,
+                    (Blob==1?1.7f:1.3f)*Scale,
+                    (Blob==1?.62f:.48f)*Scale);
                 Clouds->AddInstance(FTransform(
-                    FRotator(0,Random.FRandRange(0,360),0),Origin,
-                    FVector((Blob==1?3.2f:2.45f)*Scale,
-                            (Blob==1?1.7f:1.3f)*Scale,
-                            (Blob==1?.62f:.48f)*Scale)));
+                    FRotator(0,Random.FRandRange(0,360),0),Origin,CloudScale));
+
+                // Le plan du moteur fait 100 unites de cote ; le nuage est une
+                // sphere de 100 unites mise a l'echelle. L'ombre est un peu
+                // plus large que lui, comme une penombre.
+                const FVector2D ShadowScale(CloudScale.X*1.25f,CloudScale.Y*1.25f);
+                CloudShadowScales.Add(ShadowScale);
+                if(bShadows)
+                    CloudShadows->AddInstance(FTransform(FRotator::ZeroRotator,
+                        FVector(Origin.X,Origin.Y,CloudShadowGroundZ),
+                        FVector(ShadowScale.X,ShadowScale.Y,1.f)));
             }
         }
+    }
+
+    BuildWildlife(Random);
+}
+
+void APDEnvironment::BuildWildlife(FRandomStream& Random)
+{
+    // Un habitant au sol. Oiseaux et lucioles vivent dans le ciel ; il manquait
+    // quelque chose qui touche le decor du joueur. Faute de modele d'animal
+    // dans les packs installes, on n'en pose aucun : une sphere qui traverse la
+    // vallee serait pire que rien.
+    UStaticMesh* Animal=FindPreferredProductionAsset<UStaticMesh>(TEXT("deer"),0);
+    if(!Animal) Animal=FindPreferredProductionAsset<UStaticMesh>(TEXT("stag"),0);
+    if(!Animal) Animal=FindPreferredProductionAsset<UStaticMesh>(TEXT("sheep"),0);
+    if(!Animal) Animal=FindPreferredProductionAsset<UStaticMesh>(TEXT("cow"),0);
+    if(!Animal) return;
+
+    Deer->SetStaticMesh(Animal);
+    for(int32 Index=0;Index<3;++Index)
+    {
+        const FVector From(Random.FRandRange(-2600,2400),
+            Random.FRandRange(-1400,1500),WildlifeGroundZ);
+        const FVector To=From+FVector(Random.FRandRange(-900,900),
+            Random.FRandRange(-700,700),0.f);
+        DeerFrom.Add(From); DeerTo.Add(To);
+        DeerPhases.Add(Random.FRandRange(0,2*PI));
+        Deer->AddInstance(FTransform(FRotator::ZeroRotator,From,FVector(1.f)));
     }
 }
 
@@ -854,6 +921,56 @@ void APDEnvironment::Tick(float DeltaSeconds)
     }
     if(FireflyOrigins.Num()) Fireflies->MarkRenderStateDirty();
     if(DustOrigins.Num()) Dust->MarkRenderStateDirty();
+    // Ombres de nuages : chaque nuage est projete au sol le long du soleil.
+    // Comme le soleil tourne lentement (plus haut dans ce meme Tick), les
+    // ombres s'allongent et glissent avec lui. Une seule source de verite pour
+    // la lumiere, exactement comme dans js/world.js cote web.
+    if(CloudShadows->GetInstanceCount()>0&&Sun.IsValid())
+    {
+        const FVector SunDirection=Sun->GetActorForwardVector();
+        for(int32 Index=0;Index<CloudOrigins.Num()
+            &&Index<CloudShadows->GetInstanceCount();++Index)
+        {
+            FVector P=CloudOrigins[Index];
+            P.X=FMath::Fmod(P.X+Time*CloudSpeeds[Index]+4500.f,9000.f)-4500.f;
+
+            // Projection sur le sol. Soleil rasant : l'ombre part tres loin, on
+            // la borne pour qu'elle ne quitte pas la vallee.
+            FVector Ground(P.X,P.Y,CloudShadowGroundZ);
+            if(SunDirection.Z<-.05f)
+            {
+                const float Travel=FMath::Min(
+                    (P.Z-CloudShadowGroundZ)/-SunDirection.Z,6000.f);
+                Ground.X+=SunDirection.X*Travel;
+                Ground.Y+=SunDirection.Y*Travel;
+            }
+            const FVector2D Scale=CloudShadowScales[Index];
+            CloudShadows->UpdateInstanceTransform(Index,
+                FTransform(FRotator::ZeroRotator,Ground,
+                    FVector(Scale.X,Scale.Y,1.f)),false,false,true);
+        }
+    }
+
+    // Chevreuils : un aller-retour lent entre deux clairieres, tete baissee
+    // quand ils s'arretent. Rien ne les relie au jeu ; ils habitent, c'est tout.
+    for(int32 Index=0;Index<DeerFrom.Num();++Index)
+    {
+        const float Loop=34.f+6.f*Index;
+        const float K=FMath::Fmod(Time+DeerPhases[Index]*Loop,Loop)/Loop;
+        const float Ease=.5f-.5f*FMath::Cos(K*2.f*PI);
+        const FVector P=FMath::Lerp(DeerFrom[Index],DeerTo[Index],Ease);
+        const FVector Heading=DeerTo[Index]-DeerFrom[Index];
+        const float Yaw=FMath::RadiansToDegrees(FMath::Atan2(Heading.Y,Heading.X))
+            +(FMath::Sin(K*2.f*PI)<0.f?180.f:0.f);
+        const bool bMoving=FMath::Abs(FMath::Sin(K*2.f*PI))>.25f;
+        const float Bob=bMoving?FMath::Abs(FMath::Sin(Time*5.f+DeerPhases[Index]))*6.f:0.f;
+        Deer->UpdateInstanceTransform(Index,
+            FTransform(FRotator(0,Yaw,0),P+FVector(0,0,Bob),FVector(1.f)),
+            false,false,true);
+    }
+
     if(BirdOrigins.Num()) Birds->MarkRenderStateDirty();
     if(CloudOrigins.Num()) Clouds->MarkRenderStateDirty();
+    if(CloudShadows->GetInstanceCount()>0) CloudShadows->MarkRenderStateDirty();
+    if(DeerFrom.Num()) Deer->MarkRenderStateDirty();
 }

@@ -434,6 +434,63 @@ def test_run_local(tmp: Path):
           missing.stderr.strip()[:200])
 
 
+
+def test_hostile_engine():
+    """Chaque script d'éditeur doit survivre à un moteur qui dit non à tout.
+
+    C'est la promesse écrite en tête de ces fichiers — « une API absente donne
+    un avertissement nommé, pas un script mort ». Elle était fausse pour deux
+    d'entre eux : les constructeurs passés en argument (unreal.Vector,
+    unreal.LinearColor, get_asset_tools()) s'exécutaient *avant* d'entrer dans
+    la protection, et tuaient la passe avant le premier avertissement.
+    """
+    print("Moteur hostile : tout est absent")
+
+    import io
+    from contextlib import redirect_stdout, redirect_stderr
+    sys.path.insert(0, str(HERE))
+    import hostile_unreal
+
+    scripts = ["healthcheck.py", "build_test_arena.py",
+               "export_sprites.py", "living_valley_pass.py"]
+    for name in scripts:
+        path = ROOT / "unreal/Content/Python" / name
+        if not path.exists():
+            check("%s existe" % name, False)
+            continue
+        sys.modules["unreal"] = hostile_unreal.install()
+        out = io.StringIO()
+        try:
+            with redirect_stdout(out), redirect_stderr(out):
+                exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"),
+                     {"__name__": "__main__"})
+            survived, why = True, ""
+        except BaseException as err:
+            survived, why = False, "%s: %s" % (type(err).__name__, err)
+        finally:
+            sys.modules.pop("unreal", None)
+        check("%s survit" % name, survived, why)
+
+    # Et le contraire : avec un moteur coopératif, la passe doit *agir*.
+    import fake_unreal
+    fake_unreal.reset()
+    sys.modules["unreal"] = fake_unreal
+    out = io.StringIO()
+    try:
+        with redirect_stdout(out), redirect_stderr(out):
+            exec(compile((ROOT / "unreal/Content/Python/living_valley_pass.py")
+                         .read_text(encoding="utf-8"), "living_valley_pass.py", "exec"),
+                 {"__name__": "__main__"})
+        text = out.getvalue()
+    except BaseException as err:
+        text = ""
+        check("la passe tourne sur un moteur coopératif", False, str(err))
+    finally:
+        sys.modules.pop("unreal", None)
+
+    check("le compte rendu machine est émis", "LIVING_VALLEY_JSON" in text, text[-200:])
+
+
 def main():
     tmp = Path(__file__).resolve().parent / "_tmp"
     tmp.mkdir(exist_ok=True)
@@ -441,6 +498,7 @@ def main():
     test_stream_parsing()
     test_job_validation(tmp)
     test_engine_discovery(tmp)
+    test_hostile_engine()
     test_run_local(tmp)
     test_no_editor(tmp)       # avant de lancer l'éditeur, forcément
     test_macos_hint()

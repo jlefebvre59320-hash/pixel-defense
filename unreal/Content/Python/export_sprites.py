@@ -77,6 +77,21 @@ def _safe(label, fn, *args, **kwargs):
         return None
 
 
+def vec(x=0.0, y=0.0, z=0.0):
+    """unreal.Vector, mais qui ne fait pas tomber le script s'il manque.
+
+    Construire un vecteur est un appel au moteur comme un autre : sur une
+    version où le symbole a bougé, il lève. Le banc « moteur hostile » a montré
+    que ces constructions, passées en argument, échappaient à _safe et
+    tuaient le script avant le premier avertissement.
+    """
+    return _safe("unreal.Vector", unreal.Vector, x, y, z)
+
+
+def rot(roll=0.0, pitch=0.0, yaw=0.0):
+    return _safe("unreal.Rotator", unreal.Rotator, roll, pitch, yaw)
+
+
 def _enum(name, member):
     holder = getattr(unreal, name, None)
     return getattr(holder, member, None) if holder else None
@@ -108,7 +123,7 @@ def spawn(cls, location, rotation=None):
     if cls is None:
         _warn("classe d'acteur absente de cette version d'Unreal.")
         return None
-    rotation = rotation or unreal.Rotator(0.0, 0.0, 0.0)
+    rotation = rotation or rot(0.0, 0.0, 0.0)
     sub = _subsystem("EditorActorSubsystem")
     if sub is not None and hasattr(sub, "spawn_actor_from_class"):
         return _safe("placement d'acteur", sub.spawn_actor_from_class, cls, location, rotation)
@@ -148,7 +163,7 @@ def build_stage(p, world):
     """
     stage = {"actors": [], "component": None, "target": None, "origin": None}
 
-    origin = unreal.Vector(100000.0, 100000.0, 100000.0)
+    origin = vec(100000.0, 100000.0, 100000.0)
     stage["origin"] = origin
 
     size = int(p["size"])
@@ -161,8 +176,8 @@ def build_stage(p, world):
 
     fx, fy, fz = forward(p["pitch"], p["yaw"])
     d = float(p["distance_cm"])
-    cam_pos = unreal.Vector(origin.x - fx * d, origin.y - fy * d, origin.z - fz * d)
-    cam_rot = unreal.Rotator(0.0, float(p["pitch"]), float(p["yaw"]))
+    cam_pos = vec(origin.x - fx * d, origin.y - fy * d, origin.z - fz * d)
+    cam_rot = rot(0.0, float(p["pitch"]), float(p["yaw"]))
 
     capture = spawn(getattr(unreal, "SceneCapture2D", None), cam_pos, cam_rot)
     if capture is None:
@@ -186,8 +201,8 @@ def build_stage(p, world):
 
     if p["light"]:
         sun = spawn(getattr(unreal, "DirectionalLight", None),
-                    unreal.Vector(origin.x, origin.y, origin.z + 500.0),
-                    unreal.Rotator(0.0, -45.0, float(p["yaw"]) + 30.0))
+                    vec(origin.x, origin.y, origin.z + 500.0),
+                    rot(0.0, -45.0, float(p["yaw"]) + 30.0))
         if sun is not None:
             stage["actors"].append(sun)
         sky = spawn(getattr(unreal, "SkyLight", None), origin)
@@ -217,10 +232,10 @@ def make_backdrop(p, origin, fwd):
 
     fx, fy, fz = fwd
     back = float(p["frame_cm"]) * 1.5
-    pos = unreal.Vector(origin.x + fx * back, origin.y + fy * back, origin.z + fz * back)
-    rot = unreal.Rotator(0.0, float(p["pitch"]) + 90.0, float(p["yaw"]))
+    pos = vec(origin.x + fx * back, origin.y + fy * back, origin.z + fz * back)
+    facing = rot(0.0, float(p["pitch"]) + 90.0, float(p["yaw"]))
 
-    actor = spawn(getattr(unreal, "StaticMeshActor", None), pos, rot)
+    actor = spawn(getattr(unreal, "StaticMeshActor", None), pos, facing)
     if actor is None:
         return None
     _safe("nom du fond", actor.set_actor_label, "SpriteBackdrop")
@@ -233,7 +248,7 @@ def make_backdrop(p, origin, fwd):
 
     # Le plan du moteur fait 100 cm de côté.
     span = float(p["frame_cm"]) * 4.0 / 100.0
-    _safe("échelle du fond", actor.set_actor_scale3d, unreal.Vector(span, span, 1.0))
+    _safe("échelle du fond", actor.set_actor_scale3d, vec(span, span, 1.0))
 
     base = _safe("matériau du fond", unreal.load_asset, p["backdrop_material"])
     if base is None:
@@ -379,7 +394,7 @@ def capture_figure(p, world, stage, fig, out_dir):
 
     cls, comp_prop = actor_class_for(mesh)
     origin = stage["origin"]
-    actor = spawn(cls, origin, unreal.Rotator(0.0, 0.0, float(fig.get("yaw", 0.0))))
+    actor = spawn(cls, origin, rot(0.0, 0.0, float(fig.get("yaw", 0.0))))
     if actor is None:
         return None, "placement impossible"
 
@@ -396,7 +411,7 @@ def capture_figure(p, world, stage, fig, out_dir):
 
         scale = float(fig.get("scale", 1.0))
         _safe("échelle du sujet", actor.set_actor_scale3d,
-              unreal.Vector(scale, scale, scale))
+              vec(scale, scale, scale))
 
         # Recentrer : la caméra vise l'origine du plateau, pas le pivot du
         # maillage. Sans ce recalage, un modèle dont le pivot est aux pieds
@@ -406,7 +421,7 @@ def capture_figure(p, world, stage, fig, out_dir):
             try:
                 center, _extent = bounds
                 _safe("recentrage", actor.set_actor_location,
-                      unreal.Vector(origin.x * 2 - center.x,
+                      vec(origin.x * 2 - center.x,
                                     origin.y * 2 - center.y,
                                     origin.z * 2 - center.z),
                       False, False)

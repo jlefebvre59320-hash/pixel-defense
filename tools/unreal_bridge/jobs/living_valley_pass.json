@@ -1,0 +1,17 @@
+{
+  "name": "living_valley_pass",
+  "description": "Accorde le rendu Unreal sur celui de la version web : eau réfléchissante, matériau d'ombre de nuages, soleil et étalonnage chaud/froid.",
+  "steps": [
+    {
+      "name": "Contrôle du moteur",
+      "script": "unreal/Content/Python/healthcheck.py",
+      "continue_on_error": true
+    },
+    {
+      "name": "Vallée vivante",
+      "script": "unreal/Content/Python/living_valley_pass.py",
+      "timeout": 600,
+      "comment": "Ne crée pas de soleil ni de ciel : le projet en a déjà. Cette passe comble les deux écarts avec la version web — une eau capable de réfléchir (l'ancienne est en matériau non éclairé) et le matériau d'ombre que le C++ pose sous les nuages. Les ombres n'apparaissent qu'après recompilation du module : bash tools/unreal/build_macos.sh"
+    }
+  ]
+}

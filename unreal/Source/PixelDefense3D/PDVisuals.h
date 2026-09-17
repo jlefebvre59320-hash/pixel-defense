@@ -94,6 +94,8 @@ private:
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Dust;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Birds;
     UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Clouds;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* CloudShadows;
+    UPROPERTY() UHierarchicalInstancedStaticMeshComponent* Deer;
     TArray<FVector> FireflyOrigins;
     TArray<float> FireflyPhases;
     TArray<FVector> DustOrigins;
@@ -102,9 +104,14 @@ private:
     TArray<float> BirdPhases;
     TArray<FVector> CloudOrigins;
     TArray<float> CloudSpeeds;
+    TArray<FVector2D> CloudShadowScales;
+    TArray<FVector> DeerFrom;
+    TArray<FVector> DeerTo;
+    TArray<float> DeerPhases;
     TArray<TWeakObjectPtr<UPointLightComponent>> TorchLights;
     TWeakObjectPtr<ADirectionalLight> Sun;
 
+    void BuildWildlife(FRandomStream& Random);
     void BuildTerrain();
     void BuildForest();
     void BuildVillage();

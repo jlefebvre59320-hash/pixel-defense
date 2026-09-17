@@ -60,6 +60,21 @@ def _safe(label, fn, *args, **kwargs):
         return None
 
 
+def vec(x=0.0, y=0.0, z=0.0):
+    """unreal.Vector, mais qui ne fait pas tomber le script s'il manque.
+
+    Construire un vecteur est un appel au moteur comme un autre : sur une
+    version où le symbole a bougé, il lève. Le banc « moteur hostile » a montré
+    que ces constructions, passées en argument, échappaient à _safe et
+    tuaient le script avant le premier avertissement.
+    """
+    return _safe("unreal.Vector", unreal.Vector, x, y, z)
+
+
+def rot(roll=0.0, pitch=0.0, yaw=0.0):
+    return _safe("unreal.Rotator", unreal.Rotator, roll, pitch, yaw)
+
+
 # --- Compatibilité UE4 / UE5 -------------------------------------------------
 # UE5 déplace le pilotage de l'éditeur dans des sous-systèmes ; UE4 (et UE5 en
 # héritage) l'expose via EditorLevelLibrary. On prend ce qui répond.
@@ -98,7 +113,7 @@ def save_level():
 
 
 def spawn(cls, location, rotation=None):
-    rotation = rotation or unreal.Rotator(0.0, 0.0, 0.0)
+    rotation = rotation or rot(0.0, 0.0, 0.0)
     sub = _subsystem("EditorActorSubsystem")
     if sub is not None and hasattr(sub, "spawn_actor_from_class"):
         return _safe("placement d'acteur", sub.spawn_actor_from_class, cls, location, rotation)
@@ -114,7 +129,7 @@ def spawn(cls, location, rotation=None):
 
 def block(mesh, label, center, size):
     """Un pavé : un cube du moteur (100 cm de côté) mis à l'échelle voulue."""
-    actor = spawn(unreal.StaticMeshActor, unreal.Vector(*center))
+    actor = spawn(unreal.StaticMeshActor, vec(*center))
     if actor is None:
         return None
 
@@ -128,7 +143,7 @@ def block(mesh, label, center, size):
         _safe("assignation du maillage", comp.set_static_mesh, mesh)
 
     _safe("mise à l'échelle", actor.set_actor_scale3d,
-          unreal.Vector(size[0] / 100.0, size[1] / 100.0, size[2] / 100.0))
+          vec(size[0] / 100.0, size[1] / 100.0, size[2] / 100.0))
 
     if comp is not None:
         _safe("mobilité (final)", comp.set_mobility, unreal.ComponentMobility.STATIC)
@@ -169,19 +184,19 @@ def build(p):
 
     sx = (p["spawn"][0] + 0.5) * tile
     sy = (p["spawn"][1] + 0.5) * tile
-    start = spawn(getattr(unreal, "PlayerStart", None), unreal.Vector(sx, sy, 100.0))
+    start = spawn(getattr(unreal, "PlayerStart", None), vec(sx, sy, 100.0))
     if start is not None:
         _safe("nom du point de départ", start.set_actor_label, "Depart")
         made.append(start)
 
     sun = spawn(getattr(unreal, "DirectionalLight", None),
-                unreal.Vector(w / 2.0, d / 2.0, hh + 500.0),
-                unreal.Rotator(0.0, -50.0, 30.0))
+                vec(w / 2.0, d / 2.0, hh + 500.0),
+                rot(0.0, -50.0, 30.0))
     if sun is not None:
         _safe("nom du soleil", sun.set_actor_label, "Soleil")
         made.append(sun)
 
-    sky = spawn(getattr(unreal, "SkyLight", None), unreal.Vector(w / 2.0, d / 2.0, hh))
+    sky = spawn(getattr(unreal, "SkyLight", None), vec(w / 2.0, d / 2.0, hh))
     if sky is not None:
         _safe("nom du ciel", sky.set_actor_label, "Ciel")
         made.append(sky)
