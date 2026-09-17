@@ -23,6 +23,15 @@
     [0, 3], [5, 3], [3, 7], [8, 7], [0, 13], [8, 11], [7, 14], [4, 15]
   ];
 
+  /* Étangs. L'eau est du décor infranchissable comme le reste : ce qui compte
+     côté règles, c'est qu'on n'y bâtit pas. Deux mares posées dans les coins,
+     là où le chemin ne passe pas — c'est là que se voient les reflets, les
+     rides et les poissons, et c'est ce qui fait respirer le plateau. */
+  var WATER_LIST = [
+    [0, 3], [0, 4], [1, 3],
+    [8, 11], [8, 12], [7, 12]
+  ];
+
   function key(c, r) { return c + "," + r; }
 
   /* Cases traversées par le chemin, obtenues en marchant d'un point de
@@ -45,7 +54,14 @@
 
   var PATH = buildPath();
   var BLOCKED = {};
+  var WATER = {};
   BLOCKED_LIST.forEach(function (t) { BLOCKED[key(t[0], t[1])] = true; });
+  /* L'eau est bloquante elle aussi : une seule règle à retenir, et le rendu
+     n'a pas à se demander si une case d'eau pourrait porter une tour. */
+  WATER_LIST.forEach(function (t) {
+    WATER[key(t[0], t[1])] = true;
+    BLOCKED[key(t[0], t[1])] = true;
+  });
 
   /* Points de passage au centre des cases, en unités de case (1 = une case).
      C'est le repère utilisé par tout le jeu : positions, portées, rayons
@@ -69,6 +85,14 @@
     },
     isPath: function (c, r) { return PATH[key(c, r)] === true; },
     isBlocked: function (c, r) { return BLOCKED[key(c, r)] === true; },
+    isWater: function (c, r) { return WATER[key(c, r)] === true; },
+
+    /* Une case de décor qui n'est pas de l'eau porte un arbre ou un rocher. */
+    isProp: function (c, r) {
+      return MAP.isBlocked(c, r) && !MAP.isWater(c, r);
+    },
+
+    WATER_LIST: WATER_LIST,
 
     /* Une case est constructible si elle est sur le plateau, hors chemin et
        hors décor. Rien d'autre : pas de limite de nombre de tours. */

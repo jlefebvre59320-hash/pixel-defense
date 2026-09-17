@@ -7,7 +7,7 @@
    Le numéro de version ci-dessous est la seule chose à changer pour publier
    une mise à jour : un nouveau nom de cache remplace l'ancien, qui est
    supprimé à l'activation. */
-const CACHE = "pixel-defense-v3";
+const CACHE = "pixel-defense-v4";
 
 const ASSETS = [
   "./",
@@ -16,6 +16,7 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./js/config.js",
   "./js/map.js",
+  "./js/world.js",
   "./js/art.js",
   "./js/skin.js",
   "./js/storage.js",

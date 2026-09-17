@@ -100,6 +100,7 @@ js/config.js        Tout l'équilibrage : tours, ennemis, 20 vagues, économie
 js/map.js           Grille 9×16, chemin déduit des points de passage, décor
 js/art.js           Toutes les figures, tracées en courbes puis mises en cache
 js/skin.js          Remplace une figure tracée par une image, quand il y en a une
+js/world.js         Le monde vivant : lumière, ciel, eau, faune
 js/storage.js       Record et préférences (localStorage, panne sans douleur)
 js/audio.js         Bruitages de synthèse — aucun fichier son
 js/render.js        Rendu canvas : décor peint une fois, tri par profondeur, effets
@@ -174,6 +175,56 @@ mur.
 Un contrôle au chargement (`Art.validate()`) trace chaque figure une fois et
 signale dans la console celles qui manquent ou qui échouent. Les icônes de
 l'application se régénèrent avec `node tools/make-icons.mjs`.
+
+### Le monde vivant
+
+Quatre couches, au-dessus du plateau et en dessous du jeu : la lumière, le
+ciel, l'eau et la faune. Elles vivent dans
+[`js/world.js`](js/world.js) et tiennent sur un seul principe — **une seule
+source de vérité pour la lumière**. Le soleil est déclaré une fois ; les ombres
+portées, les reflets, le voile d'ambiance et les ombres de nuages en découlent
+tous. Une lumière cohérente fait plus pour l'illusion de relief que n'importe
+quel dégradé ajouté au hasard.
+
+- **Ombres orientées.** Chaque objet porte une hauteur, en cases. C'est elle
+  qui donne la longueur de l'ombre : une tour de niveau 3 en projette une plus
+  longue qu'un rocher, et une harpie en vol une longue et pâle, loin sous elle.
+  Avant même de reconnaître la silhouette, on sait ce qui vole et ce qui marche.
+- **Nuages.** Chacun est cuit une fois en deux images — son ombre et lui-même —
+  puis recopié. L'ombre court au sol, le nuage est décalé vers le soleil :
+  c'est cet écart qui donne l'altitude.
+- **Eau.** Deux mares, avec rives arrondies, rides, éclats de soleil et
+  **reflets** de ce qui les borde. Le contour est obtenu en marchant le bord de
+  la zone : empiler un rectangle par case laisse les arêtes intérieures, et la
+  mare se retrouve quadrillée.
+- **Faune.** Oiseaux dans le ciel (avec leur ombre bien plus bas), papillons
+  au-dessus de l'herbe, chevreuils qui broutent, ronds de poissons dans les
+  mares. Aucun n'interagit avec le jeu — ce sont des habitants, et leurs
+  tailles comme leurs couleurs les distinguent des ennemis au premier coup
+  d'œil.
+
+Rien n'est animé par un pas de temps : tout se déduit de l'horloge. Le monde
+continue de vivre en pause, il ne dérive jamais, et il se comporte pareil à 60
+ou 120 images par seconde.
+
+Les mares occupent des cases de décor : on n'y bâtit pas, exactement comme sur
+un rocher. Le robot d'équilibrage confirme que retirer ces quelques
+emplacements ne change rien — vague 16 pour une défense posée au hasard, 20/20
+pour une défense pensée, aux mêmes scores qu'avant.
+
+**Le coût, mesuré et non supposé.** Cette couche a été profilée poste par
+poste, et trois idées ont été essayées puis abandonnées parce que les chiffres
+les contredisaient :
+
+| Essai | Résultat |
+| --- | --- |
+| Nuages tracés à chaque trame | 41 im/s → cuits une fois : bien mieux |
+| Ombres de nuages en `multiply` | −8 im/s, pour un écart invisible à ces opacités |
+| Ciel composé à demi-résolution | 30 im/s contre 43 : l'agrandissement coûte plus qu'il n'économise |
+| Reflets recalculés par trame | 19 im/s → cuits dans un calque, refait seulement quand une tour change |
+
+État final : **56 images par seconde** en rendu logiciel, dans un navigateur
+sans accélération matérielle — le pire cas.
 
 ### Habiller le jeu avec un pack de textures
 

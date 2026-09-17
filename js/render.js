@@ -16,6 +16,15 @@
   var C = PD.CONFIG;
   var MAP = PD.MAP;
   var A = PD.Art;
+  var W = PD.World;
+
+  /* Qualité du monde vivant. Les nuages sont la couche la plus coûteuse — un
+     dégradé radial par bouffée et par trame — donc la première à alléger.
+     On se fie au nombre de cœurs plutôt qu'à un test de vitesse : mesurer la
+     cadence puis dégrader en cours de partie produit un à-coup visible, et le
+     joueur ne comprend pas pourquoi le ciel a changé. */
+  var LOW_END = (navigator.hardwareConcurrency || 4) <= 2;
+  var QUALITY = { clouds: LOW_END ? 3 : 4, wildlife: true, reflections: true };
 
   /* Palette du décor — la même lumière que la couche d'art : le clair en haut,
      l'ombre en bas. */
@@ -45,6 +54,7 @@
 
   var geo = { px: 4, tile: 64, ox: 0, oy: 0, w: 0, h: 0, dpr: 1, cssW: 0, cssH: 0 };
   var terrain = null;
+  var props = null;
 
   /* Bruit stable : le plateau doit être reconnaissable d'une partie à l'autre,
      donc aucune touffe d'herbe n'est tirée au sort au chargement. */
@@ -84,6 +94,7 @@
       geo.oy = 0;
 
       terrain = null;                        // à repeindre à la nouvelle échelle
+      W.Sky.setup(QUALITY.clouds, tile);
       var ctx = canvas.getContext("2d");
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
@@ -212,28 +223,22 @@
         }
       }
 
-      /* Décor infranchissable : arbres et rochers, posés sur le bas de leur
-         case pour qu'ils aient l'air debout et non collés. */
-      for (var r2 = 0; r2 < C.ROWS; r2++) {
-        for (var c2 = 0; c2 < C.COLS; c2++) {
-          if (!MAP.isBlocked(c2, r2)) continue;
-          var isTree = noise(c2, r2) > 0.45;
-          var bx = Render.sx(c2 + 0.5);
-          var by = Render.sy(r2 + 0.95);
-          Render.groundShadow(g, bx, by, tile * (isTree ? 0.36 : 0.40));
-          A.draw(g, isTree ? "tree" : "rock", {
-            x: bx, y: by, w: tile * (isTree ? 1.6 : 1.4)
-          });
-        }
-      }
+      /* Les mares : le lit ne bouge jamais, il appartient donc au décor. La
+         surface, les reflets et les poissons sont animés et passent par la
+         trame. */
+      W.Water.bed(g, geo);
+
+      /* Arbres et rochers ne sont plus peints ici : ils se balancent, portent
+         une ombre orientée et se reflètent dans l'eau — trois choses qu'un
+         décor figé ne sait pas faire. Voir Render.props(). */
 
       /* Caverne d'où sortent les vagues, en haut du chemin. */
-      Render.groundShadow(g, Render.sx(MAP.SPAWN.x), Render.sy(0.5), tile * 0.5);
+      Render.groundShadow(g, Render.sx(MAP.SPAWN.x), Render.sy(0.5), tile * 0.5, 1.1);
       A.draw(g, "cave", { x: Render.sx(MAP.SPAWN.x), y: Render.sy(0.62), w: tile * 1.85 });
 
       /* La forteresse à défendre. */
       var core = MAP.CORE_POINT;
-      Render.groundShadow(g, Render.sx(core.x), Render.sy(core.y + 0.42), tile * 0.75);
+      Render.groundShadow(g, Render.sx(core.x), Render.sy(core.y + 0.42), tile * 0.7, 1.7);
       A.draw(g, "core", { x: Render.sx(core.x), y: Render.sy(core.y + 0.42), w: tile * 2.35 });
 
       /* Vignette : le plateau se referme sur lui-même au lieu d'être coupé
@@ -283,14 +288,12 @@
       return { x: -vy / len, y: vx / len };
     },
 
-    groundShadow: function (g, x, y, r) {
-      g.save();
-      g.globalAlpha = 0.26;
-      g.fillStyle = "#1d2a16";
-      g.beginPath();
-      g.ellipse(x, y, r, r * 0.34, 0, 0, Math.PI * 2);
-      g.fill();
-      g.restore();
+    /* Ombre portée. `h` est la hauteur de l'objet, en cases : c'est elle qui
+       donne la longueur de l'ombre, et donc l'impression de volume. Sans
+       hauteur, on retombe sur la flaque ronde d'avant, qui collait tout au
+       sol à la même distance. */
+    groundShadow: function (g, x, y, r, h) {
+      W.Light.shadow(g, x, y, r, h === undefined ? 0.5 : h, geo.tile);
     },
 
     /* ---- Trame ---------------------------------------------------------- */
@@ -331,8 +334,25 @@
         ctx.restore();
       }
 
-      /* Tri par profondeur : ce qui est plus bas passe devant. */
+      /* L'eau : reflets, surface animée et ronds de poissons, sous un seul
+         détourage. Tout cela passe *sous* les figures — c'est dans la mare,
+         pas dessus. */
+      var mirrored = QUALITY.reflections ? Render.reflectors(st) : [];
+      W.Water.draw(ctx, now, geo, mirrored, Render.reflectKey(st), QUALITY.wildlife);
+
+      /* Ombres du ciel, en `multiply` : elles assombrissent l'herbe comme les
+         tours qu'elles traversent. Posées avant les figures pour que le sol
+         s'assombrisse d'abord ; les nuages eux-mêmes viendront tout en haut. */
+      W.Sky.shadows(ctx, now, geo);
+      if (QUALITY.wildlife) W.Wildlife.birds(ctx, now, geo, "shadow");
+
+      /* Tri par profondeur : ce qui est plus bas passe devant. Décor, tours et
+         ennemis sont mêlés dans le même tri — un gobelin doit pouvoir passer
+         devant un arbre et derrière le suivant. */
       var drawables = [];
+      Render.propList().forEach(function (prop) {
+        drawables.push({ y: prop.r + 0.92, kind: "prop", it: prop });
+      });
       st.towers.forEach(function (t) {
         drawables.push({ y: t.r + 0.9, kind: "tower", it: t });
       });
@@ -342,12 +362,105 @@
       drawables.sort(function (a, b) { return a.y - b.y; });
       drawables.forEach(function (d) {
         if (d.kind === "tower") Render.tower(ctx, d.it, now);
+        else if (d.kind === "prop") Render.prop(ctx, d.it, now);
         else Render.enemy(ctx, d.it, now);
       });
+
+      if (QUALITY.wildlife) {
+        W.Wildlife.deer(ctx, now, geo);
+        W.Wildlife.butterflies(ctx, now, geo);
+      }
 
       Render.shots(ctx, st);
       Render.fx(ctx, st);
       Render.floats(ctx, st);
+
+      /* Tout en haut : les oiseaux, le voile d'ambiance et les nuages. Un
+         nuage passe *au-dessus* de tout — s'il passait derrière une tour, il
+         cesserait d'être un nuage. */
+      if (QUALITY.wildlife) W.Wildlife.birds(ctx, now, geo, "bird");
+      W.Light.ambience(ctx, geo.w, geo.h);
+      W.Sky.puffs(ctx, now, geo);
+    },
+
+    /* ---- Décor vivant ---------------------------------------------------- */
+
+    /* Arbres et rochers, déduits de la carte une fois pour toutes. Le tirage
+       est celui d'avant, au bruit près : le plateau doit rester le même. */
+    propList: function () {
+      if (props) return props;
+      props = [];
+      for (var r = 0; r < C.ROWS; r++) {
+        for (var c = 0; c < C.COLS; c++) {
+          if (!MAP.isProp(c, r)) continue;
+          props.push({ c: c, r: r, tree: noise(c, r) > 0.45, seed: c * 7 + r * 13 });
+        }
+      }
+      return props;
+    },
+
+    prop: function (ctx, prop, now) {
+      var tile = geo.tile;
+      var x = Render.sx(prop.c + 0.5);
+      var y = Render.sy(prop.r + 0.95);
+
+      Render.groundShadow(ctx, x, y, tile * (prop.tree ? 0.30 : 0.36),
+        prop.tree ? 1.35 : 0.65);
+
+      if (!prop.tree) {
+        A.draw(ctx, "rock", { x: x, y: y, w: tile * 1.4 });
+        return;
+      }
+
+      /* Un arbre se balance par le haut, pas par le pied : on incline autour
+         du tronc. Chaque arbre a sa phase, sinon la forêt respire d'un seul
+         souffle et l'effet se voit. */
+      var sway = Math.sin(now / 1400 + prop.seed) * 0.022
+               + Math.sin(now / 520 + prop.seed * 2.1) * 0.006;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.transform(1, 0, sway, 1, 0, 0);
+      ctx.translate(-x, -y);
+      A.draw(ctx, "tree", { x: x, y: y, w: tile * 1.6 });
+      ctx.restore();
+    },
+
+    /* Signature de ce qui borde les mares. Le calque de reflets n'est refait
+       que lorsqu'elle change — donc quand une tour est bâtie, améliorée ou
+       vendue, et jamais pendant une vague. */
+    reflectKey: function (st) {
+      var key = String(geo.tile);
+      st.towers.forEach(function (t) {
+        if (MAP.isWater(t.c, t.r + 1)) key += "|" + t.c + "," + t.r + "," + t.type + t.level;
+      });
+      return key;
+    },
+
+    /* Ce qui se reflète : tout ce qui est posé sur la case juste au-dessus
+       d'une mare. Arbres, rochers et tours — le reste bouge trop pour qu'un
+       reflet en vaille le coût. */
+    reflectors: function (st) {
+      var tile = geo.tile;
+      var out = [];
+
+      function add(c, r, name, w, frame) {
+        if (!MAP.isWater(c, r + 1)) return;
+        out.push({
+          x: Render.sx(c + 0.5),
+          y: Render.sy(r + 0.95),
+          shoreY: Render.sy(r + 1),
+          name: name, w: w, frame: frame, flip: false
+        });
+      }
+
+      Render.propList().forEach(function (prop) {
+        add(prop.c, prop.r, prop.tree ? "tree" : "rock",
+            tile * (prop.tree ? 1.6 : 1.4), 0);
+      });
+      st.towers.forEach(function (t) {
+        add(t.c, t.r, "tower_" + C.TOWERS[t.type].key, TOWER_W * tile, t.level);
+      });
+      return out;
     },
 
     range: function (ctx, cx, cy, radius, color) {
@@ -374,7 +487,7 @@
       var footY = Render.sy(t.r + 0.94);
       var def = C.TOWERS[t.type];
 
-      Render.groundShadow(ctx, cx, footY, tile * 0.42);
+      Render.groundShadow(ctx, cx, footY, tile * 0.38, 0.85 + t.level * 0.28);
       A.draw(ctx, "tower_" + def.key, { x: cx, y: footY, w: TOWER_W * tile, frame: t.level });
 
       /* Le canon est la seule tour dont une pièce pivote : sa bouche suit la
@@ -466,7 +579,11 @@
       var footY = def.fly ? cy + bob : cy + def.size * tile * 0.55;
       var shadowY = def.fly ? cy + tile * 0.62 : footY;
 
-      Render.groundShadow(ctx, cx, shadowY, def.size * tile * (def.fly ? 0.6 : 0.85));
+      /* Ce qui vole porte une ombre longue et pâle, loin sous lui ; ce qui
+         marche en porte une courte, à ses pieds. C'est la lecture la plus
+         rapide entre les deux, avant même de reconnaître la silhouette. */
+      Render.groundShadow(ctx, cx, shadowY, def.size * tile * (def.fly ? 0.55 : 0.8),
+        def.fly ? 1.9 : 0.42 * (def.scale || 1));
 
       /* Ralenti : une flaque de givre au sol, posée avant la créature pour
          qu'on la voie sans qu'elle la masque. */
